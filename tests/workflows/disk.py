@@ -1,7 +1,7 @@
-from wf import context, Workflow
+from wf import context, WorkflowBuilder
 
 
-wf = Workflow('disk')
+wf = WorkflowBuilder('disk')
 
 
 @wf.task('task start', **{

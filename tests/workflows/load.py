@@ -1,7 +1,7 @@
-from wf import context, Workflow
+from wf import context, WorkflowBuilder
 
 
-wf = Workflow('load')
+wf = WorkflowBuilder('load')
 
 
 @wf.task('task start', **{

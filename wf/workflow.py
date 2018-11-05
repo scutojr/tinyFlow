@@ -1,7 +1,8 @@
 import os
 import json
-from imp import find_module, load_module
 from time import time
+from copy import deepcopy
+from imp import find_module, load_module
 from functools import partial
 
 import mongoengine as me
@@ -41,11 +42,18 @@ class WorkflowManager(object):
                 module = load_module(path, file, pathname, desc)
                 for attr in dir(module):
                     member = getattr(module, attr)
-                    if isinstance(member, Workflow):
-                        self._workflows[member.name] = member
+                    if isinstance(member, WorkflowBuilder):
+                        wf = member.wf()
+                        self._workflows[wf.name] = wf
 
     def get_workflows(self):
-        return dict(self._workflows)
+        return self._workflows.values()
+
+    def get_workflow(self, name):
+        wf = self._workflows.get(name, None)
+        if wf:
+            wf = deepcopy(wf)
+        return wf
 
 
 class Context(me.Document):
@@ -77,8 +85,9 @@ class Context(me.Document):
 
 class Workflow(object):
 
-    def __init__(self, name, ctx=None):
+    def __init__(self, name, ctx=None, desc=''):
         self.name = name
+        self.desc = desc
         self._ending = False
         self._next_task = None
         self._tasks = {}
@@ -113,9 +122,45 @@ class Workflow(object):
             yield (self._next_task, self._tasks[self._next_task])
 
     def execute(self):
+        count = 0
         for task_name, task_func in self.next_task():
-            print 'executing: ', task_name
+            count += 1
             task_func()
+            if count > 10:
+                break
+
+    def get_metadata(self):
+        return {
+            'name': self.name,
+            'description': self.desc,
+            'graph': self._graph
+        }
 
     def __str__(self):
         return json.dumps(self._graph)
+
+
+class WorkflowBuilder(object):
+    def __init__(self, name, ctx=None, desc=''):
+        self._wf = Workflow(name, ctx=ctx, desc=desc)
+
+    def goto(self, next_task_name, reason=None):
+        get_cur_wf().goto(next_task_name, reason)
+
+    def task(self, task_name, **to):
+        return self._wf.task(task_name, **to)
+
+    def add_task(self, task_name, func, **to):
+        self._wf.add_task(task_name, func, **to)
+
+    def end(self):
+        get_cur_wf().end()
+
+    def __str__(self):
+        return str(self._wf)
+
+    def wf(self):
+        return self._wf
+
+
+from .executor import get_cur_wf

@@ -37,7 +37,9 @@ class TestWorkFlow(unittest.TestCase):
         executor = WorkflowExecutor(20)
         for i in range(2):
             wf = WorkflowBuilder.from_builder()
-            executor.execute(wf)
+            print 'xxxxx =============='
+            print 'xxxx:', executor.execute(wf)
+            print 'xxxxx =============='
 
 
 class WorkflowBuilder():

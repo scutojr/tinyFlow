@@ -1,10 +1,7 @@
-import pudb
 import platform
 import os.path as op
 
 from wf.workflow import WorkflowManager
-
-# pudb.set_trace()
 
 
 WINDOW = 'Windows'
