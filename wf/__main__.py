@@ -1,5 +1,7 @@
 import platform
 
+from mongoengine import connect
+
 from wf import service_router
 from wf.server import HttpServer
 from wf.workflow import WorkflowManager
@@ -14,8 +16,21 @@ def get_pack_dir_for_test():
         return '/tmp/ojr/tests/workflows'
 
 
+def connect_db():
+    db = 'test'
+    host, port = 'mongo_test_server', 27017
+    connect(db, host=host, port=port)
+
+
+def config_log():
+    pass
+
+
 def main():
     pack_dir = get_pack_dir_for_test()
+    config_log()
+    connect_db()
+
     wf_manager = WorkflowManager(pack_dir)
     wf_executor = WorkflowExecutor()
 

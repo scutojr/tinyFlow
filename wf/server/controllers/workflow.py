@@ -1,5 +1,6 @@
 import json
 
+from flask import request
 from flask.blueprints import Blueprint
 
 from wf import service_router
@@ -20,7 +21,20 @@ def list_workflow():
 
 @bp.route('/workflows/<wf_name>/actions/<action>', methods=['GET'])
 def manipulate_wf(wf_name, action):
+    """
+    :http param async:
+    :return:
+    """
+    is_async = request.args.get('async', False)
     wf = wf_manager.get_workflow(wf_name)
-    _, ctx = wf_executor.execute(wf)
-    print ctx.msgs
-    return ''
+    if is_async:
+        ctx_id, async_result = wf_executor.execute_async(wf)
+        return str(ctx_id)
+    else:
+        wf_executor.execute(wf)
+        return '' # return failed or successful
+
+
+@bp.route('/workflows/info/<wf_id>', methods=['GET'])
+def wf_info(wf_id):
+    return wf_executor.get_wf_state(wf_id).to_json()

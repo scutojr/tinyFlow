@@ -13,3 +13,4 @@ RUN yum install python-pip -y
 RUN yum install mongodb-org-shell -y
 RUN pip install mongoengine
 RUN yum groupinstall "Development Tools" -y
+RUN yum install tmux -y

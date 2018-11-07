@@ -1,5 +1,9 @@
+import logging
 from threading import local
+from traceback import format_exc
 from multiprocessing.dummy import Pool
+
+from bson.objectid import ObjectId
 
 from wf.workflow import Context
 
@@ -26,6 +30,22 @@ def _set_cur_wf(wf):
     _wf.workflow = wf
 
 
+class State(object):
+    def __init__(self, state, reason):
+        self.state = state
+        self.reason = reason
+
+
+class WfStates(object):
+    scheduling = State('scheduling', 'the workflow is in the running queue of executor.')
+    running = State('running', 'the workflow is running.')
+    interacting = State('interacting', 'the workflow is waiting for user decision.')
+    blocking = State('blocking', 'the workflow is waiting for specific event to occur.')
+    successful = State('successful', 'the workflow is successful with no exception.')
+    failed = State('failed', 'the workflow is failed with exception.')
+    crashed = State('crashed', 'the workflow is failed because system is crash.')
+
+
 class ContextProxy(object):
 
     def __getattribute__(self, name):
@@ -43,34 +63,61 @@ class WorkflowManager(object):
 
 
 class WorkflowExecutor(object):
+
     def __init__(self, size=10):
         self.pool = Pool(size)
+        self.LOGGER = logging.getLogger(WorkflowExecutor.__name__)
 
-    def _run(self, workflow):
-        """
-        :param workflow:
-        :return:  (workflow, context)
-        """
-        _set_cur_ctx(Context())
+    def _run(self, workflow, ctx):
+        _set_cur_ctx(ctx)
         _set_cur_wf(workflow)
-        workflow.execute()
+        ctx.state = WfStates.running.state
+        ctx.save()
+        try:
+            workflow.set_ctx(ctx)
+            workflow.execute()
+        except:
+            print format_exc()
+            ctx.state = WfStates.failed.state
+            ctx.log(format_exc())
+        else:
+            ctx.state = WfStates.successful.state
+        ctx.save()
         return workflow, _ctx.context
 
-    def execute(self, workflow):
+    @staticmethod
+    def reset_state_after_crash():
         """
+        TODO
+        :return:
+        """
+        pass
+
+    def execute(self, workflow, event=None):
+        """
+        :param event:
         :param workflow:
         :return:  (workflow, context)
         """
-        async_result = self.execute_async(workflow)
+        exec_id, async_result = self.execute_async(workflow, event)
         return async_result.get()
 
-    def execute_async(self, workflow):
+    def execute_async(self, workflow, event=None):
         """
+        :param event:
         :param workflow:
-        :return:  instance of AsyncResult
+        :return:  (execution id, instance of AsyncResult)
         """
-        async_result = self.pool.apply_async(self._run, (workflow,))
-        return async_result
+        ctx = Context()
+        ctx.source_event = event
+        ctx.state = WfStates.scheduling.state
+        ctx.save()
+        async_result = self.pool.apply_async(self._run, (workflow, ctx))
+        return (ctx.id, async_result)
+
+    def get_wf_state(self, wf_ctx_id):
+        ctxs = Context.objects(id=ObjectId(wf_ctx_id))
+        return ctxs.first()
 
 
 context = ContextProxy()
