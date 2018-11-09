@@ -4,6 +4,7 @@ from flask import request
 from flask.blueprints import Blueprint
 
 from wf import service_router
+from wf.workflow import Context
 from wf.server.reactor import Event, EventState
 
 
@@ -58,3 +59,27 @@ def run_wf(wf_name):
 @bp.route('/workflows/info/<wf_id>', methods=['GET'])
 def wf_info(wf_id):
     return wf_executor.get_wf_state(wf_id).to_json()
+
+
+@bp.route('/userDecisions/<ctx_id>', methods=['GET', 'POST'])
+def user_decision(ctx_id):
+    """
+    http params:
+        decision;
+        comment
+    :param ctx_id:
+    :return:
+    """
+    if request.method == 'GET':
+        return Context.get_asking_context().to_json()
+    else:
+        args = request.args
+        context = Context.from_ctx_id(ctx_id)
+        decision = args['decision']
+        comment = args['comment']
+
+        context.make_decision(decision, comment)
+        wf = wf_manager.get_workflow(context.wf)
+        wf_executor.execute_async(workflow=wf, ctx=context)
+
+        return str(context.id)

@@ -7,10 +7,11 @@ from traceback import format_exc
 from collections import defaultdict
 from imp import find_module, load_module
 
+from bson.objectid import ObjectId
 import mongoengine as me
 
 import wf
-from wf.server.reactor import Event, EventState
+from wf.server.reactor import Event, EventState, UserDecision
 
 
 __all__ = [
@@ -80,30 +81,6 @@ class WorkflowManager(object):
         return wf, ctx
 
 
-class UserDecision(me.Document):
-    options = me.DictField()
-    decision = me.StringField()
-    comment = me.StringField()
-
-    created_time = me.IntField()
-    decided_time = me.IntField()
-
-    def __init__(self, *args, **kwargs):
-        super(UserDecision, self).__init__(*args, **kwargs)
-        self.created_time = now_ms()
-
-    def add_option(self, *option):
-        for op in option:
-            self.options[op] = ''
-
-    def make_decision(self,  decision, comment=''):
-        if decision not in self.options:
-            raise Exception('decision from user is not in the list of options')
-        self.decision = decision
-        self.comment = comment
-        self.decided_time = now_ms()
-
-
 class Context(me.Document):
     wf = me.StringField(default='')
     props = me.DictField()
@@ -115,6 +92,8 @@ class Context(me.Document):
     state = me.StringField(default='')
 
     callbacks = me.ListField()
+
+    user_decision = me.EmbeddedDocumentField(UserDecision)
 
     def __init__(self, *args, **kwargs):
         super(Context, self).__init__(*args, **kwargs)
@@ -143,9 +122,26 @@ class Context(me.Document):
         else:
             return self.callbacks[-1][0]
 
+    def create_decision(self, desc, *options):
+        self.user_decision = UserDecision(desc=desc, options=options)
+
+    def make_decision(self, decison, comment):
+        self.user_decision.make_decision(decison, comment)
+
     @staticmethod
     def new_context(workflow):
         return Context(wf=workflow.name)
+
+    @staticmethod
+    def from_ctx_id(ctx_id):
+        return Context.objects(id=ObjectId(ctx_id)).first()
+
+    @staticmethod
+    def get_asking_context():
+        """
+        :return: list of context that is asking user for decision
+        """
+        return Context.objects(state=WfStates.asking.state)
 
 
 class Workflow(object):
@@ -153,6 +149,7 @@ class Workflow(object):
     def __init__(self, name, desc='', max_task_run=100):
         self.name = name
         self.desc = desc
+        self._asking = False
         self._waited = False
         self._ending = False
         self._default_start_task = None
@@ -181,8 +178,6 @@ class Workflow(object):
         self._ending = True
 
     def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
-        # import pudb
-        # pudb.set_trace()
         if to_state not in EventState.alls:
             raise Exception('to_state must be in the list of: ' + ','.join(EventState.alls))
         self._ctx.callbacks.append((goto, on_timeout))
@@ -207,7 +202,7 @@ class Workflow(object):
         count = 0
         ctx = self._ctx
         for task_name, task_func in self.next_task():
-            if self.should_wait():
+            if self.should_wait() or self.is_asking():
                 break
             count += 1
             try:
@@ -228,6 +223,14 @@ class Workflow(object):
             'description': self.desc,
             'graph': self._graph
         }
+
+    def is_asking(self):
+        return self._asking
+
+    def ask(self, desc, options, goto):
+        self._ctx.create_decision(desc, *options)
+        self._ctx.set_callback(goto, goto)
+        self._asking = True
 
     def __str__(self):
         return json.dumps(self._graph)
@@ -266,6 +269,9 @@ class WorkflowBuilder(object):
     def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
         get_cur_wf().wait(event, to_state, timeout_ms, goto=goto, on_timeout=on_timeout)
 
+    def ask(self, desc, options, goto):
+        get_cur_wf().ask(desc, options, goto)
+
     def task(self, task_name, **to):
         return self._wf.task(task_name, **to)
 
@@ -287,4 +293,4 @@ class WorkflowBuilder(object):
         ]
 
 
-from .executor import get_cur_wf
+from .executor import get_cur_wf, WfStates

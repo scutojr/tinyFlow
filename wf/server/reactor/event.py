@@ -1,5 +1,10 @@
+from time import time
 from bson.objectid import ObjectId
 import mongoengine as me
+
+
+def now_ms():
+    return int(time() * 1000)
 
 
 class EventState(object):
@@ -57,16 +62,26 @@ class EventWithHook(Event):
         return ewh
 
 
+class UserDecision(me.EmbeddedDocument):
+    desc = me.StringField()
+    options = me.ListField(me.StringField())
+    decision = me.StringField()
+    comment = me.StringField()
 
-def test_ref_doc():
-    from mongoengine import connect
-    class EventRefTest(me.Document):
-        event = me.ReferenceField(Event)
-    def generate_event():
-        for name in ['load', 'disk', 'memory', 'cpu']:
-            event = Event(name=name, entity='ojr-test')
-            event.save()
-            ref = EventRefTest(event=event)
-            ref.save()
-    connect('test', host='mongo_test_server', port=27017)
-    generate_event()
+    created_time = me.IntField()
+    decided_time = me.IntField()
+
+    def __init__(self, *args, **kwargs):
+        super(UserDecision, self).__init__(*args, **kwargs)
+        self.created_time = now_ms()
+
+    def add_option(self, *option):
+        for op in option:
+            self.options[op] = ''
+
+    def make_decision(self,  decision, comment=''):
+        if decision not in self.options:
+            raise Exception('decision from user is not in the list of options')
+        self.decision = decision
+        self.comment = comment
+        self.decided_time = now_ms()

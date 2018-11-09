@@ -10,6 +10,7 @@ from wf.workflow import Context
 
 __all__ = [
     'context',
+    'WfStates',
     'WorkflowExecutor'
 ]
 
@@ -41,6 +42,7 @@ class WfStates(object):
     running = State('running', 'the workflow is running.')
     interacting = State('interacting', 'the workflow is waiting for user decision.')
     waiting = State('waiting', 'the workflow is waiting for specific event to occur.')
+    asking = State('asking', 'the workflow is asking the user for decision.')
     successful = State('successful', 'the workflow is successful with no exception.')
     failed = State('failed', 'the workflow is failed with exception.')
     crashed = State('crashed', 'the workflow is failed because system is crash.')
@@ -79,6 +81,8 @@ class WorkflowExecutor(object):
         else:
             if workflow.should_wait():
                 ctx.state = WfStates.waiting.state
+            elif workflow.is_asking():
+                ctx.state = WfStates.asking.state
             else:
                 ctx.state = WfStates.successful.state
         ctx.save()
