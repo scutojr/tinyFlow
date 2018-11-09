@@ -12,3 +12,10 @@ def get(host, port, endpoint):
     conn.request('GET', endpoint)
     resp = conn.getresponse()
     return resp.status, resp.reason, resp.read()
+
+
+def post(host, port, endpoint, body):
+    conn = HTTPConnection(host, port)
+    conn.request('POST', endpoint, body)
+    resp = conn.getresponse()
+    return resp.status, resp.reason, resp.read()

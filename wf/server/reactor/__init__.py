@@ -1,6 +1,9 @@
-from .event import Event
+from .event import Event, EventState
+from .manager import EventManager
 
 
 __all__ = [
-    'Event'
+    'Event',
+    'EventState',
+    'EventManager'
 ]

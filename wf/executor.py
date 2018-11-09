@@ -40,7 +40,7 @@ class WfStates(object):
     scheduling = State('scheduling', 'the workflow is in the running queue of executor.')
     running = State('running', 'the workflow is running.')
     interacting = State('interacting', 'the workflow is waiting for user decision.')
-    blocking = State('blocking', 'the workflow is waiting for specific event to occur.')
+    waiting = State('waiting', 'the workflow is waiting for specific event to occur.')
     successful = State('successful', 'the workflow is successful with no exception.')
     failed = State('failed', 'the workflow is failed with exception.')
     crashed = State('crashed', 'the workflow is failed because system is crash.')
@@ -50,9 +50,6 @@ class ContextProxy(object):
 
     def __getattribute__(self, name):
         ctx = getattr(_ctx, 'context', None)
-        if not ctx:
-            ctx = Context()
-            _ctx.context = ctx
         return getattr(ctx, name)
 
 
@@ -77,11 +74,13 @@ class WorkflowExecutor(object):
             workflow.set_ctx(ctx)
             workflow.execute()
         except:
-            print format_exc()
             ctx.state = WfStates.failed.state
             ctx.log(format_exc())
         else:
-            ctx.state = WfStates.successful.state
+            if workflow.should_wait():
+                ctx.state = WfStates.waiting.state
+            else:
+                ctx.state = WfStates.successful.state
         ctx.save()
         return workflow, _ctx.context
 
@@ -91,25 +90,34 @@ class WorkflowExecutor(object):
         TODO
         :return:
         """
-        pass
+        normal_states = [WfStates.successful.state, WfStates.failed.state]
+        ctxs = Context.objects()
+        for ctx in ctxs:
+            if ctx.state not in normal_states:
+                ctx.state.state = WfStates.crashed.state
+                ctx.save()
 
-    def execute(self, workflow, event=None):
+    def execute(self, workflow, event=None, ctx=None):
         """
         :param event:
         :param workflow:
         :return:  (workflow, context)
         """
-        exec_id, async_result = self.execute_async(workflow, event)
+        exec_id, async_result = self.execute_async(workflow, event=event, ctx=ctx)
         return async_result.get()
 
-    def execute_async(self, workflow, event=None):
+    def execute_async(self, workflow, event=None, ctx=None):
         """
         :param event:
         :param workflow:
         :return:  (execution id, instance of AsyncResult)
         """
-        ctx = Context()
-        ctx.source_event = event
+        if not ctx:
+            ctx = Context.new_context(workflow)
+            ctx.source_event = event
+        elif not event:
+            # append to list of event and provide a method to get the latest event
+            pass
         ctx.state = WfStates.scheduling.state
         ctx.save()
         async_result = self.pool.apply_async(self._run, (workflow, ctx))

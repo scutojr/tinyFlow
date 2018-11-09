@@ -1,9 +1,13 @@
 from time import sleep
 
-from wf import context, WorkflowBuilder
+from wf import context, WorkflowBuilder, EventSubcription
 
 
-wf = WorkflowBuilder('sleepy_wf')
+wf = WorkflowBuilder('sleepy_wf', event_subscriptions=[
+    EventSubcription('sleepy_test', 'critical')
+])
+
+
 SLEEP_S = 2
 
 

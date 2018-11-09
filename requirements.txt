@@ -1,3 +1,4 @@
 flask
 tornado
 mongoengine
+stomp.py==4.1.20

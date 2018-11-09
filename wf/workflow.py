@@ -9,7 +9,8 @@ from imp import find_module, load_module
 
 import mongoengine as me
 
-from wf.server.reactor import Event
+import wf
+from wf.server.reactor import Event, EventState
 
 
 __all__ = [
@@ -28,30 +29,32 @@ class Package(object):
 
 
 class WorkflowManager(object):
-    # discover and load workflow
-    # singleton
     def __init__(self, pack_dir):
         self.pack_dir = pack_dir
         self._workflows = {}
-        self._load()
         self._handlers = defaultdict(list)
 
+        self._load()
+
+    def _get_pack(self):
+        packs = os.listdir(self.pack_dir)
+        return [pack for pack in packs if pack.endswith('.py')]
+
     def _load(self):
-        pathes = os.listdir(self.pack_dir)
-        for path in pathes:
-            if os.path.isfile(os.path.join(self.pack_dir, path)):
-                suffix_index = path.rfind('.')
+        for pack in self._get_pack():
+            if os.path.isfile(os.path.join(self.pack_dir, pack)):
+                suffix_index = pack.rfind('.')
                 if suffix_index > 0:
-                    path = path[:suffix_index]
-                file, pathname, desc = find_module(path, [self.pack_dir])
-                module = load_module(path, file, pathname, desc)
+                    pack = pack[:suffix_index]
+                file, pathname, desc = find_module(pack, [self.pack_dir])
+                module = load_module(pack, file, pathname, desc)
                 for attr in dir(module):
                     wfb = getattr(module, attr)
                     if isinstance(wfb, WorkflowBuilder):
                         wf = wfb.wf()
                         self._workflows[wf.name] = wf
-                        for event_name in wfb.interested:
-                            self._handlers[event_name].append(wf)
+                        for key in wfb.get_subscription_keys():
+                            self._handlers[key].append(wf)
 
     def get_workflows(self):
         return self._workflows.values()
@@ -62,9 +65,19 @@ class WorkflowManager(object):
             wf = deepcopy(wf)
         return wf
 
-    def get_wf_from_event(self, event_name):
-        wfs = self._handlers[event_name]
+    def get_wf_from_event(self, event):
+        """
+        :param event:
+        :return: list of matching workflow instance
+        """
+        key = EventSubcription.key_from_event(event)
+        wfs = self._handlers[key]
         return deepcopy(wfs)
+
+    def get_wf_ctx(self, ctx_id):
+        ctx = Context.objects(id=ctx_id).first()
+        wf = self.get_workflow(ctx.wf)
+        return wf, ctx
 
 
 class UserDecision(me.Document):
@@ -101,6 +114,8 @@ class Context(me.Document):
     next_task = me.StringField(default='')
     state = me.StringField(default='')
 
+    callbacks = me.ListField()
+
     def __init__(self, *args, **kwargs):
         super(Context, self).__init__(*args, **kwargs)
 
@@ -111,10 +126,26 @@ class Context(me.Document):
         self.props[key] = value
 
     def save(self):
+        event = self.source_event
+        if event and not event.id:
+            event.save()
         super(Context, self).save()
 
     def log(self, msg, time_ms=None):
         self.msgs.append((time_ms or now_ms(), self.next_task, msg))
+
+    def set_callback(self, by_default, on_timeout):
+        self.callbacks.append((by_default, on_timeout))
+
+    def get_latest_callback(self, timeout=False):
+        if timeout:
+            return self.callbacks[-1][1]
+        else:
+            return self.callbacks[-1][0]
+
+    @staticmethod
+    def new_context(workflow):
+        return Context(wf=workflow.name)
 
 
 class Workflow(object):
@@ -122,6 +153,7 @@ class Workflow(object):
     def __init__(self, name, desc='', max_task_run=100):
         self.name = name
         self.desc = desc
+        self._waited = False
         self._ending = False
         self._default_start_task = None
         self._tasks = {}
@@ -142,8 +174,21 @@ class Workflow(object):
         self._graph[task_name] = to
         self._tasks[task_name] = func
 
+    def get_id(self):
+        return self._ctx.id
+
     def end(self):
         self._ending = True
+
+    def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
+        # import pudb
+        # pudb.set_trace()
+        if to_state not in EventState.alls:
+            raise Exception('to_state must be in the list of: ' + ','.join(EventState.alls))
+        self._ctx.callbacks.append((goto, on_timeout))
+        event_manager = wf.service_router.get_event_manager()
+        event_manager.add_hook_for_event(event, self.get_id(), to_state, timeout_ms)
+        self._waited = True
 
     def set_ctx(self, ctx):
         if not ctx.next_task:
@@ -155,10 +200,15 @@ class Workflow(object):
             next_task = self._ctx.next_task
             yield (next_task, self._tasks[next_task])
 
+    def should_wait(self):
+        return self._waited
+
     def execute(self):
         count = 0
         ctx = self._ctx
         for task_name, task_func in self.next_task():
+            if self.should_wait():
+                break
             count += 1
             try:
                 task_func()
@@ -183,18 +233,38 @@ class Workflow(object):
         return json.dumps(self._graph)
 
 
+class EventSubcription(object):
+    def __init__(self, event_name, event_state):
+        if event_state not in EventState.alls:
+            raise Exception('value of event state must be one of: ' + ','.join(EventState.alls))
+        self.name = event_name
+        self.state = event_state
+
+    def to_key(self):
+        return self.name, self.state
+
+    @staticmethod
+    def key_from_event(event):
+        return event.name, event.state
+
+
 class WorkflowBuilder(object):
-    def __init__(self, name, desc='', interested=None):
+    def __init__(self, name, desc='', event_subscriptions=None):
         """
         :param name:
         :param desc:
-        :param interested: list of interested event name
+        :param event_subscriptions:
         """
         self._wf = Workflow(name,  desc=desc)
-        self.interested = interested if interested else []
+        if event_subscriptions is None:
+            event_subscriptions = []
+        self.event_subscriptions = event_subscriptions
 
     def goto(self, next_task_name, reason=None):
         get_cur_wf().goto(next_task_name, reason)
+
+    def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
+        get_cur_wf().wait(event, to_state, timeout_ms, goto=goto, on_timeout=on_timeout)
 
     def task(self, task_name, **to):
         return self._wf.task(task_name, **to)
@@ -210,6 +280,11 @@ class WorkflowBuilder(object):
 
     def wf(self):
         return self._wf
+
+    def get_subscription_keys(self):
+        return [
+            s.to_key() for s in self.event_subscriptions
+        ]
 
 
 from .executor import get_cur_wf

@@ -6,6 +6,7 @@ from wf import service_router
 from wf.server import HttpServer
 from wf.workflow import WorkflowManager
 from wf.executor import WorkflowExecutor
+from wf.server.reactor import EventManager
 
 
 def get_pack_dir_for_test():
@@ -33,9 +34,11 @@ def main():
 
     wf_manager = WorkflowManager(pack_dir)
     wf_executor = WorkflowExecutor()
+    event_manager = EventManager(wf_manager)
 
     service_router.set_wf_manager(wf_manager)
     service_router.set_wf_executor(wf_executor)
+    service_router.set_event_manager(event_manager)
 
     http_server = HttpServer('workflow', 54321)
     http_server.start()

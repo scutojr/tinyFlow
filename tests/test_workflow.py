@@ -32,6 +32,9 @@ class TestWorkFlow(unittest.TestCase):
         for ctx in Context.objects():
             print ctx.msgs
 
+    def test_wf_max_depth(self):
+        pass
+
     def test_executor(self):
         print '===== test wf executor ====='
         executor = WorkflowExecutor(20)

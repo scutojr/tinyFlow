@@ -1,7 +1,10 @@
-from wf import context, WorkflowBuilder
+from wf import context, WorkflowBuilder, EventSubcription
 
 
-wf = WorkflowBuilder('disk')
+wf = WorkflowBuilder('disk', event_subscriptions= [
+    EventSubcription('disk', 'warning'),
+    EventSubcription('disk', 'critical')
+])
 
 
 @wf.task('task start', **{

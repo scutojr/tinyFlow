@@ -1,8 +1,9 @@
-from wf import context, WorkflowBuilder
+from wf import context, WorkflowBuilder, EventSubcription
 
 
-wf = WorkflowBuilder('load')
-
+wf = WorkflowBuilder('load', event_subscriptions= [
+    EventSubcription('load', 'critical')
+])
 
 @wf.task('task start', **{
     'succeed': 'task b',
