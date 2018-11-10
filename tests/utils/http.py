@@ -14,7 +14,7 @@ def get(host, port, endpoint):
     return resp.status, resp.reason, resp.read()
 
 
-def post(host, port, endpoint, body):
+def post(host, port, endpoint, body=None):
     conn = HTTPConnection(host, port)
     conn.request('POST', endpoint, body)
     resp = conn.getresponse()

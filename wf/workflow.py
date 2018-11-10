@@ -127,6 +127,7 @@ class Context(me.Document):
 
     def make_decision(self, decison, comment):
         self.user_decision.make_decision(decison, comment)
+        self.next_task = self.callbacks[-1][0]
 
     @staticmethod
     def new_context(workflow):
@@ -232,6 +233,9 @@ class Workflow(object):
         self._ctx.set_callback(goto, goto)
         self._asking = True
 
+    def get_decision(self):
+        return self._ctx.user_decision.decision
+
     def __str__(self):
         return json.dumps(self._graph)
 
@@ -271,6 +275,9 @@ class WorkflowBuilder(object):
 
     def ask(self, desc, options, goto):
         get_cur_wf().ask(desc, options, goto)
+
+    def get_decision(self):
+        get_cur_wf().get_decision()
 
     def task(self, task_name, **to):
         return self._wf.task(task_name, **to)
