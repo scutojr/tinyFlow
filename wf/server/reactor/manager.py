@@ -1,6 +1,9 @@
-from time import time
+from time import time, sleep
 from threading import Thread
 
+import mongoengine as me
+
+from wf.utils import *
 from .event import Event, EventWithHook
 
 
@@ -12,6 +15,17 @@ class AMQListener(object):
     pass
 
 
+class TimerHook(me.Document):
+    wf_id = me.ObjectIdField()
+    wakeup_stamp = me.IntField()
+
+    _meta = {
+        'indexes': {
+            'wakeup_stamp'
+        }
+    }
+
+
 class EventManager(Thread):
     # dispatch the event to the specific wf
     # dispatch the user decision to the specific wf
@@ -19,6 +33,7 @@ class EventManager(Thread):
 
     def __init__(self, wf_manager):
         self.wf_manager = wf_manager
+        self._timer_running = False
 
     def add_hook_for_event(self, event, ctx_id, to_state, duration_ms):
         event_with_hook = EventWithHook.from_event(event, to_state, ctx_id, now_ms() + duration_ms)
@@ -54,11 +69,34 @@ class EventManager(Thread):
             ewh.save()
         return hooks
 
+    def sleep(self, wf_id, timeout_sec):
+        # TODO: if a wf call sleep multiple time at the same method, what should we do?
+        TimerHook(wf_id=wf_id, wakeup_stamp=now_s() + timeout_sec).save()
+
     def _clean_timeout_hook(self):
         pass
 
-    def run(self):
-        pass
+    def _start_timer(self):
+        def run():
+            self._timer_running = True
+            while self._timer_running:
+                for timer_hook in TimerHook.objects(wakeup_stamp__gt=now_s()):
+                    wf_id = timer_hook.wf_id
+                    # TODO: call executor method to run the wf from wf_id again
+                sleep(1)
+        self._timer = Thread(target=run)
+        self._timer.setDaemon(True)
+        self._timer.start()
+
+    def _stop_timer(self):
+        self._timer_running = False
+        self._timer.join()
+
+    def start(self):
+        self._start_timer()
+
+    def stop(self):
+        self._stop_timer()
 
     @staticmethod
     def build_event():

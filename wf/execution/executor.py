@@ -5,12 +5,12 @@ from multiprocessing.dummy import Pool
 
 from bson.objectid import ObjectId
 
+from .wf_state import WfStates
 from wf.workflow import Context
 
 
 __all__ = [
     'context',
-    'WfStates',
     'WorkflowExecutor'
 ]
 
@@ -31,34 +31,11 @@ def _set_cur_wf(wf):
     _wf.workflow = wf
 
 
-class State(object):
-    def __init__(self, state, reason):
-        self.state = state
-        self.reason = reason
-
-
-class WfStates(object):
-    scheduling = State('scheduling', 'the workflow is in the running queue of executor.')
-    running = State('running', 'the workflow is running.')
-    interacting = State('interacting', 'the workflow is waiting for user decision.')
-    waiting = State('waiting', 'the workflow is waiting for specific event to occur.')
-    asking = State('asking', 'the workflow is asking the user for decision.')
-    successful = State('successful', 'the workflow is successful with no exception.')
-    failed = State('failed', 'the workflow is failed with exception.')
-    crashed = State('crashed', 'the workflow is failed because system is crash.')
-
-
 class ContextProxy(object):
 
     def __getattribute__(self, name):
         ctx = getattr(_ctx, 'context', None)
         return getattr(ctx, name)
-
-
-class WorkflowManager(object):
-    # 1. get registered wf information
-    # 2. get running state and result of wf
-    pass
 
 
 class WorkflowExecutor(object):
@@ -68,6 +45,8 @@ class WorkflowExecutor(object):
         self.LOGGER = logging.getLogger(WorkflowExecutor.__name__)
 
     def _run(self, workflow, ctx):
+        # import pudb
+        # pudb.set_trace()
         _set_cur_ctx(ctx)
         _set_cur_wf(workflow)
         ctx.state = WfStates.running.state
@@ -77,7 +56,7 @@ class WorkflowExecutor(object):
             workflow.execute()
         except:
             ctx.state = WfStates.failed.state
-            ctx.log(format_exc())
+            workflow.log(format_exc())
         else:
             if workflow.should_wait():
                 ctx.state = WfStates.waiting.state

@@ -1,7 +1,7 @@
-from wf import context, WorkflowBuilder, EventSubcription
+from wf.workflow import WorkFlowBuilder, EventSubcription
 
 
-wf = WorkflowBuilder('disk', event_subscriptions= [
+wf = WorkFlowBuilder('disk', event_subscriptions= [
     EventSubcription('disk', 'warning'),
     EventSubcription('disk', 'critical')
 ])
@@ -13,24 +13,24 @@ wf = WorkflowBuilder('disk', event_subscriptions= [
 })
 def start():
     msg = 'I am task start. Go to task b.'
-    context.set_prop('task start', 'yes')
-    context.log(msg)
+    wf.set_prop('task start', 'yes')
+    wf.log(msg)
     wf.goto('task b')
 
 
 @wf.task('task b')
 def b():
     msg = 'I am b. Go to task end.'
-    context.set_prop('task b', 'yes')
-    context.log(msg)
+    wf.set_prop('task b', 'yes')
+    wf.log(msg)
     wf.goto('task end')
 
 
 @wf.task('task c')
 def c():
     msg = 'I am c. Go to task end.'
-    context.set_prop('task c', 'yes')
-    context.log(msg)
+    wf.set_prop('task c', 'yes')
+    wf.log(msg)
     wf.goto('task end')
 
 
@@ -38,6 +38,6 @@ def c():
 def end():
     msg = 'This is end task'
     print 'show wf topology:', str(wf)
-    context.set_prop('task end', 'yes')
-    context.log(msg)
+    wf.set_prop('task end', 'yes')
+    wf.log(msg)
     wf.end()

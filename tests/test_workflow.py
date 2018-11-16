@@ -3,9 +3,10 @@
 import unittest
 
 from mongoengine import connect
+from bson.objectid import ObjectId
 
-from wf.workflow import Workflow, Context
-from wf.executor import WorkflowExecutor, context
+from wf.workflow import WorkFlow, Context
+from wf.execution.executor import WorkflowExecutor
 
 
 class TestWorkFlow(unittest.TestCase):
@@ -14,6 +15,11 @@ class TestWorkFlow(unittest.TestCase):
         db = 'test'
         host, port = 'mongo_test_server', 27017
         connect(db, host=host, port=port)
+
+    def _ensure_log(self, wf_id):
+        ctxs = Context.objects(id=ObjectId(wf_id))
+        flag = any(len(task.msgs) > 0 for ctx in ctxs for task in ctx.tasks)
+        self.assertTrue(flag, 'ensure the log method is functional.')
 
     def test_wf_builder(self):
         print '===== test wf builder ====='
@@ -29,8 +35,7 @@ class TestWorkFlow(unittest.TestCase):
         wf, ctx = WorkflowBuilder.wf_and_context()
         wf.execute()
         ctx.save()
-        for ctx in Context.objects():
-            print ctx.msgs
+        self._ensure_log(ctx.id)
 
     def test_wf_max_depth(self):
         pass
@@ -49,8 +54,8 @@ class WorkflowBuilder():
 
     @staticmethod
     def wf_and_context():
-        wf = Workflow('TestWorkflow')
-        ctx = context
+        wf = WorkFlow('TestWorkflow')
+        ctx = Context.new_context(wf)
 
         @wf.task('task start', **{
             'succeed': 'task b',
@@ -83,56 +88,58 @@ class WorkflowBuilder():
             ctx.set_prop('task end', 'yes')
             ctx.log(msg)
             wf.end()
+        wf.set_ctx(ctx)
         return wf, ctx
 
     @staticmethod
     def from_descriptor():
-        wf = Workflow('TestWorkflow')
+        wf = WorkFlow('TestWorkflow')
 
         @wf.task('task start', **{
             'succeed': 'task b',
             'fail': 'task c',
         })
         def start():
-            print 'I am task start. Go to task b.'
+            wf.log('I am task start. Go to task b.')
             wf.goto('task b')
 
         @wf.task('task b')
         def b():
-            print 'I am b. Go to task end.'
+            wf.log('I am b. Go to task end.')
             wf.goto('task end')
 
         @wf.task('task c')
         def c():
-            print 'I am c. Go to task end.'
+            wf.log('I am c. Go to task end.')
             wf.goto('task end')
         
         @wf.task('task end')
         def end():
-            print 'This is end task'
-            print 'show wf topology:', str(wf)
+            wf.log('This is end task')
+            wf.log('show wf topology:' + str(wf))
             wf.end()
+        wf.set_ctx(Context.new_context(wf))
         return wf
 
 
     @staticmethod
     def from_builder():
-        wf = Workflow('TestWorkflow')
+        wf = WorkFlow('TestWorkflow')
         def start():
-            print 'I am task start. Go to task b.'
+            wf.log('I am task start. Go to task b.')
             wf.goto('task b')
 
         def b():
-            print 'I am b. Go to task end.'
+            wf.log('I am b. Go to task end.')
             wf.goto('task end')
 
         def c():
-            print 'I am c. Go to task end.'
+            wf.log('I am c. Go to task end.')
             wf.goto('task end')
         
         def end():
-            print 'This is end task'
-            print 'show wf topology:', str(wf)
+            wf.log('This is end task')
+            wf.log('show wf topology:' + str(wf))
             wf.end()
 
         wf.add_task('task start', start, **{
@@ -142,6 +149,7 @@ class WorkflowBuilder():
         wf.add_task('task b', b)
         wf.add_task('task c', c)
         wf.add_task('task end', end)
+        wf.set_ctx(Context.new_context(wf))
         return wf
 
 

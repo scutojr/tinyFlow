@@ -24,9 +24,19 @@ def now_ms():
     return int(time() * 1000)
 
 
-class Package(object):
-    def __init__(self, dir):
-        self.dir = dir
+class EventSubcription(object):
+    def __init__(self, event_name, event_state):
+        if event_state not in EventState.alls:
+            raise Exception('value of event state must be one of: ' + ','.join(EventState.alls))
+        self.name = event_name
+        self.state = event_state
+
+    def to_key(self):
+        return self.name, self.state
+
+    @staticmethod
+    def key_from_event(event):
+        return event.name, event.state
 
 
 class WorkflowManager(object):
@@ -240,21 +250,6 @@ class Workflow(object):
         return json.dumps(self._graph)
 
 
-class EventSubcription(object):
-    def __init__(self, event_name, event_state):
-        if event_state not in EventState.alls:
-            raise Exception('value of event state must be one of: ' + ','.join(EventState.alls))
-        self.name = event_name
-        self.state = event_state
-
-    def to_key(self):
-        return self.name, self.state
-
-    @staticmethod
-    def key_from_event(event):
-        return event.name, event.state
-
-
 class WorkflowBuilder(object):
     def __init__(self, name, desc='', event_subscriptions=None):
         """
@@ -300,4 +295,4 @@ class WorkflowBuilder(object):
         ]
 
 
-from .executor import get_cur_wf, WfStates
+from wf.execution.executor import get_cur_wf, WfStates

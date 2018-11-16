@@ -1,9 +1,9 @@
 from time import sleep
 
-from wf import context, WorkflowBuilder, EventSubcription
+from wf.workflow import WorkFlowBuilder, EventSubcription
 
 
-wf = WorkflowBuilder('sleepy_wf', event_subscriptions=[
+wf = WorkFlowBuilder('sleepy_wf', event_subscriptions=[
     EventSubcription('sleepy_test', 'critical')
 ])
 
@@ -17,16 +17,16 @@ SLEEP_S = 2
 })
 def start():
     msg = 'I am task start. Go to task b.'
-    context.set_prop('task start', 'yes')
-    context.log(msg)
+    wf.set_prop('task start', 'yes')
+    wf.log(msg)
     wf.goto('sleepy task')
 
 
 @wf.task('sleepy task')
 def sleepy():
     msg = 'I am sleepy task. Go to task end.'
-    context.set_prop('sleepy task', 'yes')
-    context.log(msg)
+    wf.set_prop('sleepy task', 'yes')
+    wf.log(msg)
     sleep(SLEEP_S)
     wf.goto('task end')
 
@@ -35,6 +35,6 @@ def sleepy():
 def end():
     msg = 'This is end task'
     print 'show wf topology:', str(wf)
-    context.set_prop('task end', 'yes')
-    context.log(msg)
+    wf.set_prop('task end', 'yes')
+    wf.log(msg)
     wf.end()

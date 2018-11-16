@@ -1,5 +1,5 @@
-from .workflow import WorkflowBuilder, EventSubcription
-from .executor import ContextProxy
+from .workflow import EventSubcription
+from wf.execution.executor import ContextProxy
 
 
 __all__ = [

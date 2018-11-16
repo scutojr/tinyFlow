@@ -4,8 +4,8 @@ from mongoengine import connect
 
 from wf import service_router
 from wf.server import HttpServer
-from wf.workflow import WorkflowManager
-from wf.executor import WorkflowExecutor
+from wf.workflow import WorkFlowManager
+from wf.execution.executor import WorkflowExecutor
 from wf.server.reactor import EventManager
 
 
@@ -32,7 +32,7 @@ def main():
     config_log()
     connect_db()
 
-    wf_manager = WorkflowManager(pack_dir)
+    wf_manager = WorkFlowManager(pack_dir)
     wf_executor = WorkflowExecutor()
     event_manager = EventManager(wf_manager)
 
