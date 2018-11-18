@@ -29,7 +29,7 @@ class Pack(object):
         if not os.path.exists(self.run_dir):
             os.mkdir(self.run_dir)
 
-        self.latest = self.latest_version()
+        self.latest = self._latest_version()
         self.seed_version = self.latest
 
         self._load_class()
@@ -68,17 +68,17 @@ class Pack(object):
                     checksum.update(chunk)
         return checksum.hexdigest()
 
-    def latest_version(self):
+    def _latest_version(self):
         versions = [int(v) for v in os.listdir(self.run_dir) if is_int(v)]
         versions.sort()
         return len(versions) > 0 and versions[-1] or 0
 
-    def checksum(self, version):
+    def _checksum(self, version):
         return self.compute_checksum(self.run_dir + sep + str(version), self._py_file_filter)
 
     def get_latest_version_and_checksum(self):
-        version  = self.latest_version()
-        return version, self.checksum(version)
+        version  = self._latest_version()
+        return version, self._checksum(version)
 
     def _get_wf_file(self, root):
         packs = os.listdir(root)

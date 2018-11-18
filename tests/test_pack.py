@@ -1,3 +1,4 @@
+import random
 import unittest
 import traceback
 import os.path as op
@@ -12,20 +13,37 @@ class TestPack(unittest.TestCase):
         self.src_dir = self.cwd + op.sep + 'workflows'
         self.run_dir = '/var/run'
 
-    def test_load_pack(self):
-        # TODO: case a) update version, b) override version
-
+    def _test_version_update(self):
         pack = Pack(self.name, self.src_dir, self.run_dir)
+        version_old = pack.latest
+
+        with open(self.src_dir + sep + 'test_for_update_checksum', 'aw') as sink:
+            sink.write(str(random.randint(1, 1000)))
+
         try:
             pack.load()
         except:
-            print traceback.format_exc()
             self.assertTrue(False, 'failed to load the pack!!!')
         else:
-            # TODO: test the case of pack dir content change
-            for key in pack.wfs.keys():
-                print key
+            version_new = pack.latest
             self.assertIsNotNone(pack.get_wf('disk'), 'failed to get the latest workflow from pack')
+            self.assertGreater(version_new, version_old, 'version must be updated on dir content change!!!')
+
+    def _test_version_override(self):
+        pack = Pack(self.name, self.src_dir, self.run_dir)
+        version_old = pack.latest
+        try:
+            pack.load()
+        except:
+            self.assertTrue(False, 'failed to load the pack!!!')
+        else:
+            version_new = pack.latest
+            self.assertIsNotNone(pack.get_wf('disk'), 'failed to get the latest workflow from pack')
+            self.assertEqual(version_new, version_old, 'version must not be changed if dir content is not changed!!!')
+
+    def test_load_pack(self):
+        self._test_version_override()
+        self._test_version_update()
 
     def test_pack_recovery(self):
         pass
