@@ -6,3 +6,11 @@ def now_ms():
 
 def now_s():
     return int(time())
+
+
+def is_int(string):
+    try:
+        int(string)
+    except:
+        return False
+    return True
