@@ -1,6 +1,6 @@
 from .workflow import WorkFlow, Context
-from .manager import WorkFlowManager, EventSubcription
 from .builder import WorkFlowBuilder
+from .manager import WorkFlowManager, EventSubcription
 
 
 __all__ = [

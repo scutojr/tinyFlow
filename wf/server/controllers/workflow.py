@@ -74,12 +74,12 @@ def user_decision(ctx_id):
         return Context.get_asking_context().to_json()
     else:
         args = request.args
-        context = Context.from_ctx_id(ctx_id)
         decision = args['decision']
         comment = args['comment']
 
-        context.make_decision(decision, comment)
-        wf = wf_manager.get_workflow(context.wf)
-        wf_executor.execute_async(workflow=wf, ctx=context)
+        wf, ctx = wf_manager.get_wf_ctx(ctx_id)
+        wf.make_decision(decision, comment)
+        # TODO: hide ctx from http controller method
+        wf_executor.execute_async(workflow=wf, ctx=ctx)
 
-        return str(context.id)
+        return ctx_id

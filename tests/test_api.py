@@ -2,11 +2,9 @@ import time
 import json
 import unittest
 
-from bson.objectid import ObjectId
-
 from tests import http
 from wf.execution.wf_state import WfStates
-from wf.server.reactor import Event
+from wf.server.reactor import Event, EventState
 
 HOST, PORT = 'localhost', 54321
 
@@ -38,64 +36,58 @@ class TestAPI(unittest.TestCase):
         for wf_id in wf_ids:
             self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
 
-    # def test_event_driven(self):
-    #     wf_name = 'waited_workflow'
-    #     event_name = 'server_down'
-    #
-    #     endpoint = '/reactor/workflows/%s?async=yes' % wf_name
-    #     event = self._get_event(event_name)
-    #     status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
-    #
-    #     wf_ids = json.loads(wf_ids)
-    #     time.sleep(0.5)
-    #     for wf_id in wf_ids:
-    #         # self.assertTrue(self._get_wf_state(wf_id) == WfStates.waiting.state)
-    #         print '@@@@@@@@@@@@@@@:', wf_id, self._get_wf_state(wf_id)
-    #     time.sleep(2)
-    #
-    #     endpoint = '/reactor/workflows/%s?async=yes' % wf_name
-    #     event = self._get_event(event_name, state=EventState.INFO)
-    #     status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
-    #
-    #     time.sleep(2)
-    #     wf_ids = json.loads(wf_ids)
-    #     for wf_id in wf_ids:
-    #         # self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
-    #         print '@@@@@@@@@@@@@@@:', wf_id, self._get_wf_state(wf_id)
+    def test_event_driven(self):
+        wf_name = 'waited_workflow'
+        event_name = 'server_down'
+
+        endpoint = '/reactor/workflows/%s?async=yes' % wf_name
+        event = self._get_event(event_name)
+        status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
+
+        wf_ids = json.loads(wf_ids)
+        time.sleep(0.5)
+        for wf_id in wf_ids:
+            self.assertTrue(self._get_wf_state(wf_id) == WfStates.waiting.state)
+        time.sleep(2)
+
+        endpoint = '/reactor/workflows/%s?async=yes' % wf_name
+        event = self._get_event(event_name, state=EventState.INFO)
+        status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
+
+        self.assertEqual(status, 200, wf_ids)
+
+        time.sleep(2)
+        wf_ids = json.loads(wf_ids)
+        for wf_id in wf_ids:
+            self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
 
     def test_user_decision(self):
         wf_name = 'user_decision'
         event_name = 'stop_service'
 
-        #
-        # endpoint = '/reactor/workflows/%s?async=yes' % wf_name
-        # event = self._get_event(event_name)
-        # status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
-        #
-        # print '@@@@:', wf_ids
-        # wf_ids = json.loads(wf_ids)
-        # time.sleep(0.5)
-        # for wf_id in wf_ids:
-        #     print '@@@@ state is ', self._get_wf_state(wf_id)
-        #     self.assertTrue(self._get_wf_state(wf_id) == WfStates.asking.state)
+        endpoint = '/reactor/workflows/%s?async=yes' % wf_name
+        event = self._get_event(event_name)
+        status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
+
+        wf_ids = json.loads(wf_ids)
+        time.sleep(0.5)
+        for wf_id in wf_ids:
+            self.assertTrue(self._get_wf_state(wf_id) == WfStates.asking.state)
 
         def make_decision():
             endpoint = '/userDecisions/%s'
             status, reason, wfs = http.get(HOST, PORT, endpoint)
+            self.assertTrue(status == 200, 'get request to %s is failed:\n %s' % (endpoint, wfs))
             wfs = json.loads(wfs)
             for wf in wfs:
-                option, wf_id = wf['user_decision']['options'][0], wf['_id']['$oid']
+                option, wf_id = wf['tasks'][-1]['user_decision']['options'][0], wf['_id']['$oid']
                 url = (endpoint % wf_id) + ('?decision=%s&comment=%s' % (option, 'xx'))
-                print  http.post(HOST, PORT, url)
-                time.sleep(0.5)
-                print '@@@@ state is ', self._get_wf_state(wf_id)
+                status, reason, msg = http.post(HOST, PORT, url)
+                self.assertTrue(status in [200, 201], 'post request to %s is failed:\n %s' % (url, msg))
+                time.sleep(1)
                 self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
 
         make_decision()
-
-
-    def test_exception(self):
-        pass
 
 
 if __name__ == '__main__':

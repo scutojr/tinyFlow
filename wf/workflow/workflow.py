@@ -14,7 +14,10 @@ from wf.server.reactor import Event, EventState
 
 
 class Context(me.Document):
+    pack = me.StringField(default='')
     wf = me.StringField(default='')
+    version = me.IntField()
+
     props = me.DictField()
 
     tags = me.DictField()
@@ -100,10 +103,25 @@ class WorkFlow(BaseWorkFlow, BaseContext):
         self._ctx = None
         self._max_task_run = max_task_run
 
+        self._pack_name = ''
+        self._version = 0
+        self._hash_code = 0
+
+    def set_pack_info(self, pack_name, version):
+        self._pack_name = pack_name
+        self._version = version
+        self._hash_code = hash(pack_name + '.' + self.name)
+
     def set_ctx(self, ctx):
         self._ctx = ctx
+        ctx.pack = self._pack_name
+        ctx.version = self._version
         if not ctx.get_current_task():
             self._ctx.set_current_task(name=self._default_start_task)
+
+    @property
+    def source_event(self):
+        return self._ctx.source_event
 
     def save(self):
         self._ctx.save()
@@ -113,6 +131,10 @@ class WorkFlow(BaseWorkFlow, BaseContext):
 
     def get_decision(self):
         return self._ctx.get_decision()
+
+    def make_decision(self, decision, comment=''):
+        task_name = self._ctx.make_decision(decision, comment)
+        self.goto(task_name)
 
     def task(self, task_name, **to):
         self._graph[task_name] = to
@@ -139,6 +161,10 @@ class WorkFlow(BaseWorkFlow, BaseContext):
             'description': self.desc,
             'graph': self._graph
         }
+
+    def on(self, signal):
+        task_name = self._ctx.get_current_task().callbacks[signal]
+        self.goto(task_name)
 
     def goto(self, next_task_name, reason=None):
         self._ctx.set_current_task(name=next_task_name)
@@ -198,3 +224,6 @@ class WorkFlow(BaseWorkFlow, BaseContext):
 
     def __str__(self):
         return json.dumps(self._graph)
+
+    def __hash__(self):
+        return self._hash_code

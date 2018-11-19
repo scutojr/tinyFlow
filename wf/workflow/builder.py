@@ -16,6 +16,11 @@ class WorkFlowBuilder(BaseContext, BaseWorkFlow):
             event_subscriptions = []
         self.event_subscriptions = event_subscriptions
 
+    @property
+    def source_event(self):
+        # TODO: refact it because it's not the method in the interface
+        return get_cur_wf().source_event
+
     def get_decision(self):
         get_cur_wf().get_decision()
 
@@ -31,10 +36,8 @@ class WorkFlowBuilder(BaseContext, BaseWorkFlow):
     def wf(self):
         return self._wf
 
-    def get_subscription_keys(self):
-        return [
-            s.to_key() for s in self.event_subscriptions
-        ]
+    def get_subscriptions(self):
+        return self.event_subscriptions
 
     def get_prop(self, key, default=None):
         get_cur_wf().get_prop(key, default)

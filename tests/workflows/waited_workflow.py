@@ -31,7 +31,7 @@ def handle_server_down():
     # TODO: implement "on_timeout" of wait method
     wf.wait(
         event, EventState.INFO, WAIT_MS,
-        goto='reboot_succeed',
+        on_receive='reboot_succeed',
         on_timeout='reboot_failed'
     )
 
@@ -74,7 +74,7 @@ def reboot_failed():
     event = wf.source_event
     wf.wait(
         event, EventState.INFO, WAIT_MS,
-        goto='reboot_succeed',
+        on_receive='reboot_succeed',
         on_timeout='reboot_failed'
     )
 

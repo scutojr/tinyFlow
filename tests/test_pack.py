@@ -1,6 +1,5 @@
 import random
 import unittest
-import traceback
 import os.path as op
 
 from wf.workflow.pack import *
@@ -45,11 +44,13 @@ class TestPack(unittest.TestCase):
         self._test_version_override()
         self._test_version_update()
 
-    def test_pack_recovery(self):
-        pass
-
     def test_multi_version_wf(self):
-        pass
+        pack = Pack(self.name, self.src_dir, self.run_dir)
+        count = 0
+        for wf_name, version in pack.wfs.keys():
+            if wf_name == 'disk':
+                count += 1
+        self.assertGreater(count, 1)
 
 
 if __name__ == '__main__':

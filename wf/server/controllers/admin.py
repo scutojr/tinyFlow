@@ -6,5 +6,5 @@ bp = Blueprint('admin', __name__)
 
 
 @bp.route('/admin/load', methods=['GET'])
-def load_workflow():
+def load_pack():
     pass

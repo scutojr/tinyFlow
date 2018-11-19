@@ -11,14 +11,15 @@ from . import WorkFlowBuilder
 
 class Pack(object):
     # TODO: unify the type of version including self.latest, key of self.wfs
-    def __init__(self, name, src_dir, run_dir):
+    def __init__(self, name, src_dir, run_dir, manager):
+        self.manager = manager
+
         self.name = name
         self.src_dir = src_dir
         self.run_dir = run_dir + sep + name
         self.latest = 0
         self.wfs = {}
 
-        # initialize to be the value of self.latest
         self.seed_version = 0
         self.lock_seed = RLock()
         self.lock_load_pack = RLock()
@@ -39,8 +40,12 @@ class Pack(object):
     def load(self):
         self._load_pack()
 
-    def get_wf(self, wf_name, version=None):
-        return self.wfs[(wf_name, version or self.latest)]
+    def get_wf(self, wf_name=None, version=None):
+        version = self.latest if version is None else version
+        if wf_name is None:
+            return [value for key, value in self.wfs.iteritems() if key[1] == version]
+        else:
+            return self.wfs[(wf_name, version)]
 
     def add_wf(self, wf_name, version, wf):
         self.wfs[(wf_name, int(version))] = wf
@@ -93,25 +98,33 @@ class Pack(object):
             res = self.seed_version
         return res
 
+    def _handle_subscription(self):
+        pass
+
     def _load_class(self, version=None):
         if version is None:
-            versions = [v for v in os.listdir(self.run_dir) if is_int(v)]
+            versions = [int(v) for v in os.listdir(self.run_dir) if is_int(v)]
         else:
             versions = [version]
 
         for version in versions:
-            module_root = self.run_dir + sep + version
+            module_root = self.run_dir + sep + str(version)
             for py_file_name in self._get_wf_file(module_root):
                 index = py_file_name.rfind('.')
                 if index >= 0:
                     py_file_name = py_file_name[:index]
                 file, pathname, desc = find_module(py_file_name, [module_root])
-                module = load_module('.'.join([self.name, version, py_file_name]), file, pathname, desc)
+                module = load_module('.'.join([self.name, str(version), py_file_name]), file, pathname, desc)
                 for attr in dir(module):
                     wfb = getattr(module, attr)
                     if isinstance(wfb, WorkFlowBuilder):
                         wf = wfb.wf()
+                        wf.set_pack_info(self.name, version)
                         self.add_wf(wf.name, version, wf)
+
+                        if version == self.latest:
+                            for subscription in wfb.get_subscriptions():
+                                self.manager.register_workflow(subscription, wf)
 
     def _load_pack(self):
         latest_version, latest_checksum = self.get_latest_version_and_checksum()
@@ -132,6 +145,6 @@ class Pack(object):
                 latest_dir = self.run_dir + sep + str(self.latest)
                 shutil.rmtree(latest_dir, ignore_errors=True)
                 os.rename(tmp_dir, latest_dir)
-            self._load_class(str(self.latest))
+            self._load_class(self.latest)
         finally:
             self.lock_load_pack.release()

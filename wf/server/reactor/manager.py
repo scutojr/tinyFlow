@@ -45,8 +45,6 @@ class EventManager(Thread):
         :param event:
         :return: list of (wf, ctx)
         """
-        # import pudb
-        # pudb.set_trace()
         qry = {
             'name': event.name,
             'entity': event.entity,
@@ -62,7 +60,8 @@ class EventManager(Thread):
         for ewh in ewhs:
             ctx_id = ewh.ctx_id
             wf, ctx = self.wf_manager.get_wf_ctx(ctx_id)
-            ctx.next_task = ctx.get_latest_callback()
+            # TODO: refact it to avoid using hardcode signal name
+            wf.on('on_receive')
             hooks.append((wf, ctx))
 
             ewh.is_processed = True

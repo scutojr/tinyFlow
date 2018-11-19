@@ -37,7 +37,11 @@ class Task(me.EmbeddedDocument):
         :return: next task name
         """
         self.user_decision.make_decision(decison, comment)
-        return self.callbacks[decison]
+        try:
+            task_name = self.callbacks[decison]
+        except:
+            task_name = self.callbacks['default']
+        return task_name
 
     def set_callback(self, **callbacks):
         self.callbacks.update(callbacks)

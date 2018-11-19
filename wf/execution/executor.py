@@ -45,8 +45,6 @@ class WorkflowExecutor(object):
         self.LOGGER = logging.getLogger(WorkflowExecutor.__name__)
 
     def _run(self, workflow, ctx):
-        # import pudb
-        # pudb.set_trace()
         _set_cur_ctx(ctx)
         _set_cur_wf(workflow)
         ctx.state = WfStates.running.state
