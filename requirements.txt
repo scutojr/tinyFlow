@@ -1,4 +1,4 @@
 flask
-tornado
+tornado==4.5
 mongoengine
 stomp.py==4.1.20

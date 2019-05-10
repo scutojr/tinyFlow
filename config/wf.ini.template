@@ -1,0 +1,6 @@
+# special macro
+#     $HOME: root dir of the server source code
+
+[tinyFlow]
+#pack_dir=$HOME/tests/workflows
+pack_dir=/tmp/ojr/tests/workflows

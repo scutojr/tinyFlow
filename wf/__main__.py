@@ -1,7 +1,10 @@
+import sys
 import platform
+from optparse import OptionParser
 
 from mongoengine import connect
 
+from wf import config
 from wf import service_router
 from wf.server import HttpServer
 from wf.workflow import WorkflowManager
@@ -9,28 +12,37 @@ from wf.executor import WorkflowExecutor
 from wf.server.reactor import EventManager
 
 
-def get_pack_dir_for_test():
-    os_type = platform.system()
-    if os_type == 'Windows':
-        return 'C:\\Users\\90786\\dev\\workflow\\tests\\workflows'
-    else:
-        return '/tmp/ojr/tests/workflows'
+PACK_DIR = 'pack_dir'
 
 
-def connect_db():
+def parse_opts(args):
+    parser = OptionParser()
+    parser.add_option('-f', '--file', dest='file',
+                      default='',
+                      help='configuration file path')
+    (options, args) = parser.parse_args(args)
+    return options
+
+
+def _connect_db():
     db = 'test'
     host, port = 'mongo_test_server', 27017
     connect(db, host=host, port=port)
 
 
-def config_log():
+def _config_log():
     pass
 
 
-def main():
-    pack_dir = get_pack_dir_for_test()
-    config_log()
-    connect_db()
+def set_up(db = True, log = True):
+    options = parse_opts(sys.argv)
+    config.load(options.file)
+    _config_log()
+    _connect_db()
+
+
+def start_services():
+    pack_dir = config.configuration.get(PACK_DIR)
 
     wf_manager = WorkflowManager(pack_dir)
     wf_executor = WorkflowExecutor()
@@ -40,8 +52,14 @@ def main():
     service_router.set_wf_executor(wf_executor)
     service_router.set_event_manager(event_manager)
 
+
+def main():
+    set_up()
+    start_services()
+
     http_server = HttpServer('workflow', 54321)
     http_server.start()
 
 
-main()
+if __name__ == '__main__':
+    main()
