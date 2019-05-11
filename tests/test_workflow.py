@@ -27,6 +27,7 @@ class TestWorkFlow(unittest.TestCase):
 
     def test_wf_ctx(self):
         wf, ctx = WorkflowBuilder.wf_and_context()
+        wf.set_ctx(ctx) # TODO: can we hide or decrease the calling of set_ctx?
         wf.execute()
         ctx.save()
         for ctx in Context.objects():
@@ -50,7 +51,7 @@ class WorkflowBuilder():
     @staticmethod
     def wf_and_context():
         wf = Workflow('TestWorkflow')
-        ctx = context
+        ctx = Context()
 
         @wf.task('task start', **{
             'succeed': 'task b',
@@ -112,6 +113,7 @@ class WorkflowBuilder():
             print 'This is end task'
             print 'show wf topology:', str(wf)
             wf.end()
+        wf.set_ctx(Context())
         return wf
 
 
@@ -142,6 +144,7 @@ class WorkflowBuilder():
         wf.add_task('task b', b)
         wf.add_task('task c', c)
         wf.add_task('task end', end)
+        wf.set_ctx(Context())
         return wf
 
 

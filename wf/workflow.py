@@ -11,6 +11,7 @@ from bson.objectid import ObjectId
 import mongoengine as me
 
 import wf
+from .utils import now_ms
 from wf.server.reactor import Event, EventState, UserDecision
 
 
@@ -20,13 +21,24 @@ __all__ = [
 ]
 
 
-def now_ms():
-    return int(time() * 1000)
-
-
 class Package(object):
     def __init__(self, dir):
         self.dir = dir
+
+
+class EventSubcription(object):
+    def __init__(self, event_name, event_state):
+        if event_state not in EventState.alls:
+            raise Exception('value of event state must be one of: ' + ','.join(EventState.alls))
+        self.name = event_name
+        self.state = event_state
+
+    def to_key(self):
+        return self.name, self.state
+
+    @staticmethod
+    def key_from_event(event):
+        return event.name, event.state
 
 
 class WorkflowManager(object):
@@ -159,8 +171,21 @@ class Workflow(object):
         self._ctx = None # assign before the workflow is to running
         self._max_task_run = max_task_run
 
+    def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
+        if to_state not in EventState.alls:
+            raise Exception('to_state must be in the list of: ' + ','.join(EventState.alls))
+        self._ctx.callbacks.append((goto, on_timeout))
+        event_manager = wf.service_router.get_event_manager()
+        event_manager.add_hook_for_event(event, self.get_id(), to_state, timeout_ms)
+        self._waited = True
+
     def goto(self, next_task_name, reason=None):
         self._ctx.next_task = next_task_name
+
+    def ask(self, desc, options, goto):
+        self._ctx.create_decision(desc, *options)
+        self._ctx.set_callback(goto, goto)
+        self._asking = True
 
     def task(self, task_name, **to):
         self._graph[task_name] = to
@@ -175,19 +200,10 @@ class Workflow(object):
     def get_id(self):
         return self._ctx.id
 
-    def end(self):
-        self._ending = True
-
-    def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
-        if to_state not in EventState.alls:
-            raise Exception('to_state must be in the list of: ' + ','.join(EventState.alls))
-        self._ctx.callbacks.append((goto, on_timeout))
-        event_manager = wf.service_router.get_event_manager()
-        event_manager.add_hook_for_event(event, self.get_id(), to_state, timeout_ms)
-        self._waited = True
-
     def set_ctx(self, ctx):
         if not ctx.next_task:
+            # TODO: refact it because it goes wrong if we call set_ctx before adding
+            # task to the workflow
             ctx.next_task = self._default_start_task
         self._ctx = ctx
 
@@ -196,8 +212,17 @@ class Workflow(object):
             next_task = self._ctx.next_task
             yield (next_task, self._tasks[next_task])
 
+    def end(self):
+        self._ending = True
+
     def should_wait(self):
         return self._waited
+
+    def is_asking(self):
+        return self._asking
+
+    def get_decision(self):
+        return self._ctx.user_decision.decision
 
     def execute(self):
         count = 0
@@ -225,34 +250,8 @@ class Workflow(object):
             'graph': self._graph
         }
 
-    def is_asking(self):
-        return self._asking
-
-    def ask(self, desc, options, goto):
-        self._ctx.create_decision(desc, *options)
-        self._ctx.set_callback(goto, goto)
-        self._asking = True
-
-    def get_decision(self):
-        return self._ctx.user_decision.decision
-
     def __str__(self):
         return json.dumps(self._graph)
-
-
-class EventSubcription(object):
-    def __init__(self, event_name, event_state):
-        if event_state not in EventState.alls:
-            raise Exception('value of event state must be one of: ' + ','.join(EventState.alls))
-        self.name = event_name
-        self.state = event_state
-
-    def to_key(self):
-        return self.name, self.state
-
-    @staticmethod
-    def key_from_event(event):
-        return event.name, event.state
 
 
 class WorkflowBuilder(object):
@@ -298,6 +297,5 @@ class WorkflowBuilder(object):
         return [
             s.to_key() for s in self.event_subscriptions
         ]
-
 
 from .executor import get_cur_wf, WfStates

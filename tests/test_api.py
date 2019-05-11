@@ -23,63 +23,63 @@ class TestAPI(unittest.TestCase):
             name=name, entity=entity, state=state,
             tags={'cluster': 'jy', 'role': 'DataNode', 'ip': '10.11.12.13'}
         )
-    #
-    # def test_async_wf_and_wf_state(self):
-    #     wf_name = 'sleepy_wf'
-    #     endpoint = '/reactor/workflows/%s?async=yes' % wf_name
-    #     event = self._get_event('sleepy_test')
-    #     status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
-    #     wf_ids = json.loads(wf_ids)
-    #     time.sleep(0.5)
-    #     for wf_id in wf_ids:
-    #         self.assertTrue(self._get_wf_state(wf_id) == WfStates.running.state)
-    #     time.sleep(2)
-    #     for wf_id in wf_ids:
-    #         self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
-    #
-    # def test_event_driven(self):
-    #     wf_name = 'waited_workflow'
-    #     event_name = 'server_down'
-    #
-    #     endpoint = '/reactor/workflows/%s?async=yes' % wf_name
-    #     event = self._get_event(event_name)
-    #     status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
-    #
-    #     wf_ids = json.loads(wf_ids)
-    #     time.sleep(0.5)
-    #     for wf_id in wf_ids:
-    #         # self.assertTrue(self._get_wf_state(wf_id) == WfStates.waiting.state)
-    #         print '@@@@@@@@@@@@@@@:', wf_id, self._get_wf_state(wf_id)
-    #     time.sleep(2)
-    #
-    #     endpoint = '/reactor/workflows/%s?async=yes' % wf_name
-    #     event = self._get_event(event_name, state=EventState.INFO)
-    #     status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
-    #
-    #     time.sleep(2)
-    #     wf_ids = json.loads(wf_ids)
-    #     for wf_id in wf_ids:
-    #         # self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
-    #         print '@@@@@@@@@@@@@@@:', wf_id, self._get_wf_state(wf_id)
+    
+    def test_async_wf_and_wf_state(self):
+        wf_name = 'sleepy_wf'
+        endpoint = '/reactor/workflows/%s?async=yes' % wf_name
+        event = self._get_event('sleepy_test')
+        status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
+        wf_ids = json.loads(wf_ids)
+        time.sleep(0.5)
+        for wf_id in wf_ids:
+            self.assertTrue(self._get_wf_state(wf_id) == WfStates.running.state)
+        time.sleep(2)
+        for wf_id in wf_ids:
+            self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
+
+    def test_event_driven(self):
+        wf_name = 'waited_workflow'
+        event_name = 'server_down'
+    
+        endpoint = '/reactor/workflows/%s?async=yes' % wf_name
+        event = self._get_event(event_name)
+        status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
+    
+        wf_ids = json.loads(wf_ids)
+        time.sleep(0.5)
+        for wf_id in wf_ids:
+            # self.assertTrue(self._get_wf_state(wf_id) == WfStates.waiting.state)
+            print '@@@@@@@@@@@@@@@:', wf_id, self._get_wf_state(wf_id)
+        time.sleep(2)
+    
+        endpoint = '/reactor/workflows/%s?async=yes' % wf_name
+        event = self._get_event(event_name, state=EventState.INFO)
+        status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
+    
+        time.sleep(2)
+        wf_ids = json.loads(wf_ids)
+        for wf_id in wf_ids:
+            # self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
+            print '@@@@@@@@@@@@@@@:', wf_id, self._get_wf_state(wf_id)
 
     def test_user_decision(self):
         wf_name = 'user_decision'
         event_name = 'stop_service'
 
-        #
-        # endpoint = '/reactor/workflows/%s?async=yes' % wf_name
-        # event = self._get_event(event_name)
-        # status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
-        #
-        # print '@@@@:', wf_ids
-        # wf_ids = json.loads(wf_ids)
-        # time.sleep(0.5)
-        # for wf_id in wf_ids:
-        #     print '@@@@ state is ', self._get_wf_state(wf_id)
-        #     self.assertTrue(self._get_wf_state(wf_id) == WfStates.asking.state)
+        def trigger_wfs():
+            endpoint = '/reactor/workflows/%s?async=yes' % wf_name
+            event = self._get_event(event_name)
+            status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
+        
+            print '@@@@:', wf_ids
+            wf_ids = json.loads(wf_ids)
+            time.sleep(0.5)
+            for wf_id in wf_ids:
+                print '@@@@ state is ', self._get_wf_state(wf_id)
+                self.assertTrue(self._get_wf_state(wf_id) == WfStates.asking.state)
 
         def make_decision():
-            endpoint = '/userDecisions/%s'
+            endpoint = '/userDecisions/%s' # TODO: refact this url so that it can be used as merely /userDecisions
             status, reason, wfs = http.get(HOST, PORT, endpoint)
             wfs = json.loads(wfs)
             for wf in wfs:
@@ -90,6 +90,8 @@ class TestAPI(unittest.TestCase):
                 print '@@@@ state is ', self._get_wf_state(wf_id)
                 self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
 
+        trigger_wfs()
+        time.sleep(2)
         make_decision()
 
 
