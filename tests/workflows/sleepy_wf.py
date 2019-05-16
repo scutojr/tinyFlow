@@ -11,7 +11,7 @@ wf = WorkflowBuilder('sleepy_wf', event_subscriptions=[
 SLEEP_S = 2
 
 
-@wf.task('task start', **{
+@wf.task('task start', entrance=True, **{
     'succeed': 'task b',
     'fail': 'task c',
 })

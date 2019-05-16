@@ -55,12 +55,6 @@ class ContextProxy(object):
         return getattr(ctx, name)
 
 
-class WorkflowManager(object):
-    # 1. get registered wf information
-    # 2. get running state and result of wf
-    pass
-
-
 class WorkflowExecutor(object):
 
     def __init__(self, size=10):

@@ -7,7 +7,7 @@ wf = WorkflowBuilder('disk', event_subscriptions= [
 ])
 
 
-@wf.task('task start', **{
+@wf.task('task start', entrance=True, **{
     'succeed': 'task b',
     'fail': 'task c',
 })

@@ -5,7 +5,7 @@ wf = WorkflowBuilder('load', event_subscriptions= [
     EventSubcription('load', 'critical')
 ])
 
-@wf.task('task start', **{
+@wf.task('task start', entrance=True, **{
     'succeed': 'task b',
     'fail': 'task c',
 })

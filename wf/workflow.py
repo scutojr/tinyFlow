@@ -1,6 +1,5 @@
 import os
 import json
-from time import time
 from copy import deepcopy
 from functools import partial
 from traceback import format_exc
@@ -19,6 +18,20 @@ __all__ = [
     'Workflow',
     'Context'
 ]
+
+
+class ParamSource(object):
+    event_tag = 0
+    event_param = 1
+    user = 2
+
+
+class Parameter(object):
+    def __init__(self, name, default=None, source=ParamSource.user, description=''):
+        self.name = name
+	self.default = default
+	self.description = description
+	self.source = source
 
 
 class Package(object):
@@ -125,8 +138,8 @@ class Context(me.Document):
     def log(self, msg, time_ms=None):
         self.msgs.append((time_ms or now_ms(), self.next_task, msg))
 
-    def set_callback(self, by_default, on_timeout):
-        self.callbacks.append((by_default, on_timeout))
+    def set_callback(self, callback_name, on_timeout):
+        self.callbacks.append((callback_name, on_timeout))
 
     def get_latest_callback(self, timeout=False):
         if timeout:
@@ -165,11 +178,14 @@ class Workflow(object):
         self._asking = False
         self._waited = False
         self._ending = False
-        self._default_start_task = None
         self._tasks = {}
         self._graph = {}
         self._ctx = None # assign before the workflow is to running
         self._max_task_run = max_task_run
+
+	self._start_task = None
+	self._req_params = None
+	self._req_event = None
 
     def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
         if to_state not in EventState.alls:
@@ -187,15 +203,43 @@ class Workflow(object):
         self._ctx.set_callback(goto, goto)
         self._asking = True
 
-    def task(self, task_name, **to):
+    def task(self, task_name, entrance=False, **to):
         self._graph[task_name] = to
-        return partial(self.add_task, task_name, **to)
+        return partial(self.add_task, task_name, entrance=entrance, **to)
 
-    def add_task(self, task_name, func, **to):
-        if not self._default_start_task:
-            self._default_start_task = task_name
+    def add_task(self, task_name, func, entrance=False, **to):
         self._graph[task_name] = to
         self._tasks[task_name] = func
+	if entrance:
+	    self._start_task = task_name
+	return func
+
+    def parse_and_inject_task_param(self, func):
+        """
+	TODO: this method is quite confused, because you need to understand the state 
+	      between workflowBuilder, first workflow instance and workflow instance
+	      created on every request;
+	      calling order of task() and entrance()
+	"""
+	inputs = []
+	params, event = self.get_request()
+	defs = func.func_defaults
+	if defs is None:
+	    return
+	for param_def in defs:
+            name, default, source = param_def.name, param_def.default, param_def.source
+            if source == ParamSource.user:
+                inputs.append(params.get(name, default))
+            elif event is not None:
+                if source == ParamSource.event_param:
+                    inputs.append(event.params.get(name, default))
+                elif source == ParamSource.event_tag:
+                    inputs.append(event.tags.get(name, default))
+		else:
+		    inputs.append(default)
+            else:
+	        inputs.append(default)
+	func.func_defaults = tuple(inputs)
 
     def get_id(self):
         return self._ctx.id
@@ -204,8 +248,18 @@ class Workflow(object):
         if not ctx.next_task:
             # TODO: refact it because it goes wrong if we call set_ctx before adding
             # task to the workflow
-            ctx.next_task = self._default_start_task
+            ctx.next_task = self._start_task
         self._ctx = ctx
+
+    def set_request(self, params=None, event=None):
+        self._req_params = params
+	self._req_event = event
+
+    def get_request(self):
+        """
+	:return: (dict, event)
+	"""
+	return self._req_params, self._req_event
 
     def next_task(self):
         while not self._ending:
@@ -232,6 +286,7 @@ class Workflow(object):
                 break
             count += 1
             try:
+	        self.parse_and_inject_task_param(task_func)
                 task_func()
             except:
                 error = format_exc()
@@ -278,11 +333,11 @@ class WorkflowBuilder(object):
     def get_decision(self):
         get_cur_wf().get_decision()
 
-    def task(self, task_name, **to):
-        return self._wf.task(task_name, **to)
+    def task(self, task_name, entrance=False, **to):
+        return self._wf.task(task_name, entrance, **to)
 
-    def add_task(self, task_name, func, **to):
-        self._wf.add_task(task_name, func, **to)
+    def add_task(self, task_name, func, entrance=False, **to):
+        return self._wf.add_task(task_name, func, **to)
 
     def end(self):
         get_cur_wf().end()
@@ -291,6 +346,17 @@ class WorkflowBuilder(object):
         return str(self._wf)
 
     def wf(self):
+        '''
+	TODO: this method is obselete, use build() instead
+	'''
+        return self._wf
+
+    def build(self):
+        """
+	TODO: 
+	    1. check building validation such as entrace must be called to set up the entrace task
+	    2. after build is  called, changing to the wf is prevented
+	"""
         return self._wf
 
     def get_subscription_keys(self):

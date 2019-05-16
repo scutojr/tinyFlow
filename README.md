@@ -9,13 +9,16 @@
 get list of registered workflow infomation from the server
 
 **Endpoint**: /workflows
+
 **Method**: GET
 
 
 ## Trigger workflows by providing an event
 
 **Endpoint**: /reactor/workflows
+
 **Method**: POST
+
 **Body**
 ```
 TODO: here comes an event
@@ -25,6 +28,7 @@ TODO: here comes an event
 ## Get information of a workflow with id
 
 **Endpoint**: /workflows/info/<wf_id>
+
 **Method**: GET
 
 

@@ -26,7 +26,7 @@ class TestAPI(unittest.TestCase):
     
     def test_async_wf_and_wf_state(self):
         wf_name = 'sleepy_wf'
-        endpoint = '/reactor/workflows/%s?async=yes' % wf_name
+        endpoint = '/reactor/workflows/?async=yes'
         event = self._get_event('sleepy_test')
         status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
         wf_ids = json.loads(wf_ids)

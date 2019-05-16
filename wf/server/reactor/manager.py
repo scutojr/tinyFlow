@@ -1,11 +1,7 @@
-from time import time
 from threading import Thread
 
 from .event import Event, EventWithHook
-
-
-def now_ms():
-    return int(time() * 1000)
+from wf.utils import now_ms
 
 
 class AMQListener(object):
@@ -26,12 +22,9 @@ class EventManager(Thread):
 
     def get_hooks(self, event):
         """
-
         :param event:
         :return: list of (wf, ctx)
         """
-        # import pudb
-        # pudb.set_trace()
         qry = {
             'name': event.name,
             'entity': event.entity,

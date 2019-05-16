@@ -1,5 +1,4 @@
 import sys
-import platform
 from optparse import OptionParser
 
 from mongoengine import connect
@@ -21,6 +20,8 @@ def parse_opts(args):
                       default='',
                       help='configuration file path')
     (options, args) = parser.parse_args(args)
+    if options.file == '':
+        parser.error('you need to provide a configuration file by -f')
     return options
 
 

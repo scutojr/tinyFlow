@@ -4,7 +4,8 @@ import unittest
 
 from mongoengine import connect
 
-from wf.workflow import Workflow, Context
+from wf.server.reactor.event import Event
+from wf.workflow import Workflow, Context, Parameter, ParamSource
 from wf.executor import WorkflowExecutor, context
 
 
@@ -36,6 +37,48 @@ class TestWorkFlow(unittest.TestCase):
     def test_wf_max_depth(self):
         pass
 
+    def test_workflow_entrance(self):
+        order = [0]
+	args = {
+	    'var_1': 111,
+	    'var_2': 222
+	}
+	event = Event(tags={'cluster': 'gz'})
+
+        wf = Workflow('TestWorkflow')
+
+	@wf.task('a')
+        def task_a():
+	    order[0] += 1
+	    self.assertTrue(order[0] == 2)
+	    wf.goto('c')
+
+	@wf.task('b', True)
+        def task_b(
+            param1 = Parameter('var_1', 1),
+            param2 = Parameter('var_2', 2),
+            param3 = Parameter('var_3', 3),
+	    param4 = Parameter('cluster', 'bj', ParamSource.event_tag)
+	):
+	    order[0] += 1
+	    self.assertTrue(order[0] == 1)
+	    self.assertTrue(param1 == args['var_1'])
+	    self.assertTrue(param2 == args['var_2'])
+	    self.assertTrue(param3 == 3) # test default value
+	    self.assertTrue(param4 == event.tags['cluster'])
+	    wf.goto('a')
+
+	@wf.task('c')
+        def task_c():
+	    order[0] += 1
+	    self.assertTrue(order[0] == 3)
+	    wf.end()
+
+	wf.set_request(args, event)
+	wf.set_ctx(Context())
+	wf.execute()
+	self.assertTrue(order[0] == 3)
+
     def test_executor(self):
         print '===== test wf executor ====='
         executor = WorkflowExecutor(20)
@@ -53,7 +96,7 @@ class WorkflowBuilder():
         wf = Workflow('TestWorkflow')
         ctx = Context()
 
-        @wf.task('task start', **{
+        @wf.task('task start', entrance=True, **{
             'succeed': 'task b',
             'fail': 'task c',
         })
@@ -90,7 +133,7 @@ class WorkflowBuilder():
     def from_descriptor():
         wf = Workflow('TestWorkflow')
 
-        @wf.task('task start', **{
+        @wf.task('task start', entrance=True, **{
             'succeed': 'task b',
             'fail': 'task c',
         })
@@ -137,7 +180,7 @@ class WorkflowBuilder():
             print 'show wf topology:', str(wf)
             wf.end()
 
-        wf.add_task('task start', start, **{
+        wf.add_task('task start', start, entrance=True, **{
             'succeed': 'task b',
             'fail': 'task c',
         })

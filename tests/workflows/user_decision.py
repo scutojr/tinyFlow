@@ -18,7 +18,7 @@ wf = WorkflowBuilder(wf_name, event_subscriptions=[
 WAIT_MS = 2 * 1000
 
 
-@wf.task('receive_service_stop_alert')
+@wf.task('receive_service_stop_alert', entrance=True)
 def receive_service_stop_alert():
     wf.ask(
         'try to stop service, but threshold has been reached today',

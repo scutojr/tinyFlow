@@ -18,7 +18,7 @@ wf = WorkflowBuilder(wf_name, event_subscriptions=[
 WAIT_MS = 2 * 1000
 
 
-@wf.task('handle_server_down')
+@wf.task('handle_server_down', entrance=True)
 def handle_server_down():
     # import pudb
     # pudb.set_trace()
