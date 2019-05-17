@@ -41,14 +41,14 @@ def run_wf(wf_name=''):
     """
     def get():
         wf = wf_manager.get_workflow(wf_name)
-	if not wf:
-	    raise Exception('no workflow with name "%s" is found.' % wf_name)
-	wf.set_request(request.args)
+        if not wf:
+            raise Exception('no workflow with name "%s" is found.' % wf_name)
+        wf.set_request(request.args)
         is_async = request.args.get('async', False)
         ctx_id, async_result = wf_executor.execute_async(wf)
-	if not is_async:
-	    async_result.wait()
-	return json.dumps({'id': ctx_id})
+        if not is_async:
+            async_result.wait()
+        return json.dumps([str(ctx_id)])
 
     def post():
         ids = []
@@ -58,17 +58,17 @@ def run_wf(wf_name=''):
         new_wfs = wf_manager.get_wf_from_event(event)
         hooks = event_manager.get_hooks(event)
 
-	if wf_name:
-	    new_wfs = filter(lambda wf: wf.name == wf_name, new_wfs)
-	    hooks = filter(lambda hook: hook[0].name == wf_name, hooks)
-    
+        if wf_name:
+            new_wfs = filter(lambda wf: wf.name == wf_name, new_wfs)
+            hooks = filter(lambda hook: hook[0].name == wf_name, hooks)
+
         for wf in new_wfs:
-	    wf.set_request(request.args, event)
+            wf.set_request(request.args, event)
             ctx_id, async_result = wf_executor.execute_async(wf, event)
             ids.append(str(ctx_id))
             async_res.append(async_result)
         for wf, ctx in hooks:
-	    wf.set_request(request.args, event)
+            wf.set_request(request.args, event)
             _, async_result = wf_executor.execute_async(wf, event, ctx)
             ids.append(str(ctx.id))
             async_res.append(async_result)

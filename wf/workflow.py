@@ -29,9 +29,9 @@ class ParamSource(object):
 class Parameter(object):
     def __init__(self, name, default=None, source=ParamSource.user, description=''):
         self.name = name
-	self.default = default
-	self.description = description
-	self.source = source
+        self.default = default
+        self.description = description
+        self.source = source
 
 
 class Package(object):
@@ -59,14 +59,13 @@ class WorkflowManager(object):
         self.pack_dir = pack_dir
         self._workflows = {}
         self._handlers = defaultdict(list)
-
-        self._load()
+        self.load()
 
     def _get_pack(self):
         packs = os.listdir(self.pack_dir)
         return [pack for pack in packs if pack.endswith('.py')]
 
-    def _load(self):
+    def load(self):
         for pack in self._get_pack():
             if os.path.isfile(os.path.join(self.pack_dir, pack)):
                 suffix_index = pack.rfind('.')
@@ -172,6 +171,9 @@ class Context(me.Document):
 
 class Workflow(object):
 
+    EXCEP = 1
+    MAX_TASK_RUN = 2
+
     def __init__(self, name, desc='', max_task_run=100):
         self.name = name
         self.desc = desc
@@ -183,9 +185,9 @@ class Workflow(object):
         self._ctx = None # assign before the workflow is to running
         self._max_task_run = max_task_run
 
-	self._start_task = None
-	self._req_params = None
-	self._req_event = None
+        self._start_task = None
+        self._req_params = None
+        self._req_event = None
 
     def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
         if to_state not in EventState.alls:
@@ -210,23 +212,23 @@ class Workflow(object):
     def add_task(self, task_name, func, entrance=False, **to):
         self._graph[task_name] = to
         self._tasks[task_name] = func
-	if entrance:
-	    self._start_task = task_name
-	return func
+        if entrance:
+            self._start_task = task_name
+        return func
 
-    def parse_and_inject_task_param(self, func):
+    def parse_task_params(self, func):
         """
-	TODO: this method is quite confused, because you need to understand the state 
-	      between workflowBuilder, first workflow instance and workflow instance
-	      created on every request;
-	      calling order of task() and entrance()
-	"""
-	inputs = []
-	params, event = self.get_request()
-	defs = func.func_defaults
-	if defs is None:
-	    return
-	for param_def in defs:
+        TODO: this method is quite confused, because you need to understand the state
+              between workflowBuilder, first workflow instance and workflow instance
+              created on every request;
+              calling order of task() and entrance()
+        """
+        inputs = []
+        defs = func.func_defaults
+        if defs is None:
+            return inputs
+        params, event = self.get_request()
+        for param_def in defs:
             name, default, source = param_def.name, param_def.default, param_def.source
             if source == ParamSource.user:
                 inputs.append(params.get(name, default))
@@ -235,11 +237,11 @@ class Workflow(object):
                     inputs.append(event.params.get(name, default))
                 elif source == ParamSource.event_tag:
                     inputs.append(event.tags.get(name, default))
-		else:
-		    inputs.append(default)
+                else:
+                    inputs.append(default)
             else:
-	        inputs.append(default)
-	func.func_defaults = tuple(inputs)
+                inputs.append(default)
+        return inputs
 
     def get_id(self):
         return self._ctx.id
@@ -253,13 +255,13 @@ class Workflow(object):
 
     def set_request(self, params=None, event=None):
         self._req_params = params
-	self._req_event = event
+        self._req_event = event
 
     def get_request(self):
         """
-	:return: (dict, event)
-	"""
-	return self._req_params, self._req_event
+        :return: (dict, event)
+        """
+        return self._req_params, self._req_event
 
     def next_task(self):
         while not self._ending:
@@ -279,24 +281,26 @@ class Workflow(object):
         return self._ctx.user_decision.decision
 
     def execute(self):
-        count = 0
+        flag, count = -1, 0
         ctx = self._ctx
         for task_name, task_func in self.next_task():
             if self.should_wait() or self.is_asking():
                 break
             count += 1
             try:
-	        self.parse_and_inject_task_param(task_func)
-                task_func()
+                task_func(*self.parse_task_params(task_func))
             except:
-                error = format_exc()
-                ctx.log(error)
+                flag, msg = self.EXCEP, format_exc()
+                ctx.log(msg)
                 self.end()
             if count >= self._max_task_run:
+                flag, msg = self.MAX_TASK_RUN, 'max task run exceeded'
                 ctx.log('end due to max number of task run exceeded: ' + self._max_task_run)
                 self.end()
             ctx.exec_history.append(task_name)
             ctx.save()
+        if flag != -1:
+            raise Exception(msg)
 
     def get_metadata(self):
         return {
@@ -347,16 +351,16 @@ class WorkflowBuilder(object):
 
     def wf(self):
         '''
-	TODO: this method is obselete, use build() instead
-	'''
+    TODO: this method is obselete, use build() instead
+    '''
         return self._wf
 
     def build(self):
         """
-	TODO: 
-	    1. check building validation such as entrace must be called to set up the entrace task
-	    2. after build is  called, changing to the wf is prevented
-	"""
+    TODO:
+        1. check building validation such as entrace must be called to set up the entrace task
+        2. after build is  called, changing to the wf is prevented
+    """
         return self._wf
 
     def get_subscription_keys(self):

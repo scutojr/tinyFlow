@@ -1,7 +1,7 @@
 from wf import context, WorkflowBuilder, EventSubcription
 
 
-wf = WorkflowBuilder('disk', event_subscriptions= [
+wf = WorkflowBuilder('disk', event_subscriptions = [
     EventSubcription('disk', 'warning'),
     EventSubcription('disk', 'critical')
 ])

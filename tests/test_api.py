@@ -18,12 +18,44 @@ class TestAPI(unittest.TestCase):
         wf = json.loads(msg)
         return wf['state']
 
-    def _get_event(self, name, entity='ojr-test', state='critical'):
+    def _get_event(self, name, entity='ojr-test', state='critical', tags={}):
+        default = {'cluster': 'jy', 'role': 'DataNode', 'ip': '10.11.12.13'}
+        default.update(tags)
         return Event(
             name=name, entity=entity, state=state,
-            tags={'cluster': 'jy', 'role': 'DataNode', 'ip': '10.11.12.13'}
+            tags=default
         )
-    
+
+    def test_user_define_param(self):
+        def call(change=None, event=None):
+            wf_name = 'define_param_wf'
+            endpoint = '/reactor/workflows/' + wf_name
+            if change:
+                endpoint += '?change=' + str(change)
+            if event is None:
+                rc, reason, wf_ids = http.get(HOST, PORT, endpoint)
+            else:
+                rc, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
+            return json.loads(wf_ids)
+
+        ename, estate = 'test_event_param', 'warning'
+
+        wf_ids = call('new_value')
+        for wf_id in wf_ids:
+            self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
+
+        wf_ids = call('new_value', self._get_event(ename, state=estate))
+        for wf_id in wf_ids:
+            self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
+
+        wf_ids = call('new_value', self._get_event(ename, state=estate, tags={'cluster': 'wrong cluster'}))
+        for wf_id in wf_ids:
+            self.assertTrue(self._get_wf_state(wf_id) == WfStates.failed.state)
+
+        wf_ids = call()
+        for wf_id in wf_ids:
+            self.assertTrue(self._get_wf_state(wf_id) == WfStates.failed.state)
+
     def test_async_wf_and_wf_state(self):
         wf_name = 'sleepy_wf'
         endpoint = '/reactor/workflows/?async=yes'
@@ -40,22 +72,22 @@ class TestAPI(unittest.TestCase):
     def test_event_driven(self):
         wf_name = 'waited_workflow'
         event_name = 'server_down'
-    
+
         endpoint = '/reactor/workflows/%s?async=yes' % wf_name
         event = self._get_event(event_name)
         status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
-    
+
         wf_ids = json.loads(wf_ids)
         time.sleep(0.5)
         for wf_id in wf_ids:
             # self.assertTrue(self._get_wf_state(wf_id) == WfStates.waiting.state)
             print '@@@@@@@@@@@@@@@:', wf_id, self._get_wf_state(wf_id)
         time.sleep(2)
-    
+
         endpoint = '/reactor/workflows/%s?async=yes' % wf_name
         event = self._get_event(event_name, state=EventState.INFO)
         status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
-    
+
         time.sleep(2)
         wf_ids = json.loads(wf_ids)
         for wf_id in wf_ids:
@@ -70,7 +102,7 @@ class TestAPI(unittest.TestCase):
             endpoint = '/reactor/workflows/%s?async=yes' % wf_name
             event = self._get_event(event_name)
             status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
-        
+
             print '@@@@:', wf_ids
             wf_ids = json.loads(wf_ids)
             time.sleep(0.5)

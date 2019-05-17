@@ -11,4 +11,5 @@ LINUX = 'Linux'
 cur_sys = platform.system()
 pack_dir = op.dirname(op.abspath(__file__)) + (cur_sys == WINDOW and '\\' or '/') + 'workflows'
 manager = WorkflowManager(pack_dir)
+manager.load()
 print manager.get_workflows()
