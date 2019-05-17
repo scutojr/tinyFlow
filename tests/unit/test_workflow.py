@@ -39,45 +39,45 @@ class TestWorkFlow(unittest.TestCase):
 
     def test_workflow_entrance(self):
         order = [0]
-	args = {
-	    'var_1': 111,
-	    'var_2': 222
-	}
-	event = Event(tags={'cluster': 'gz'})
+        args = {
+            'var_1': 111,
+            'var_2': 222
+        }
+        event = Event(tags={'cluster': 'gz'})
 
         wf = Workflow('TestWorkflow')
 
-	@wf.task('a')
+        @wf.task('a')
         def task_a():
-	    order[0] += 1
-	    self.assertTrue(order[0] == 2)
-	    wf.goto('c')
+            order[0] += 1
+            self.assertTrue(order[0] == 2)
+            wf.goto('c')
 
-	@wf.task('b', True)
+        @wf.task('b', True)
         def task_b(
             param1 = Parameter('var_1', 1),
             param2 = Parameter('var_2', 2),
             param3 = Parameter('var_3', 3),
-	    param4 = Parameter('cluster', 'bj', ParamSource.event_tag)
-	):
-	    order[0] += 1
-	    self.assertTrue(order[0] == 1)
-	    self.assertTrue(param1 == args['var_1'])
-	    self.assertTrue(param2 == args['var_2'])
-	    self.assertTrue(param3 == 3) # test default value
-	    self.assertTrue(param4 == event.tags['cluster'])
-	    wf.goto('a')
+            param4 = Parameter('cluster', 'bj', ParamSource.event_tag)
+        ):
+            order[0] += 1
+            self.assertTrue(order[0] == 1)
+            self.assertTrue(param1 == args['var_1'])
+            self.assertTrue(param2 == args['var_2'])
+            self.assertTrue(param3 == 3) # test default value
+            self.assertTrue(param4 == event.tags['cluster'])
+            wf.goto('a')
 
-	@wf.task('c')
+        @wf.task('c')
         def task_c():
-	    order[0] += 1
-	    self.assertTrue(order[0] == 3)
-	    wf.end()
+            order[0] += 1
+            self.assertTrue(order[0] == 3)
+            wf.end()
 
-	wf.set_request(args, event)
-	wf.set_ctx(Context())
-	wf.execute()
-	self.assertTrue(order[0] == 3)
+        wf.set_request(args, event)
+        wf.set_ctx(Context())
+        wf.execute()
+        self.assertTrue(order[0] == 3)
 
     def test_executor(self):
         print '===== test wf executor ====='
@@ -119,7 +119,7 @@ class WorkflowBuilder():
             ctx.set_prop('task c', 'yes')
             ctx.log(msg)
             wf.goto('task end')
-        
+
         @wf.task('task end')
         def end():
             msg = 'This is end task'
@@ -150,7 +150,7 @@ class WorkflowBuilder():
         def c():
             print 'I am c. Go to task end.'
             wf.goto('task end')
-        
+
         @wf.task('task end')
         def end():
             print 'This is end task'
@@ -174,7 +174,7 @@ class WorkflowBuilder():
         def c():
             print 'I am c. Go to task end.'
             wf.goto('task end')
-        
+
         def end():
             print 'This is end task'
             print 'show wf topology:', str(wf)

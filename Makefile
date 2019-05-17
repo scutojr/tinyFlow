@@ -2,7 +2,6 @@
 # 1. start a interactive terminal to mongodb of test envirenment
 # 2. start tests
 
-# <<<< TO DEPRICATE
 SHELL := /bin/bash
 CWD := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
@@ -15,14 +14,22 @@ mongo_client:
 server_test:
 	@python $(CWD)/wf -f $(CWD)/config/wf.ini.template
 
-.PHONY: tests
-tests:
-	echo xx # use nosetests to driven this procedure
+.PHONY: test
+test: .unit
+
+.unit:
+	@dirUnit='tests/unit'; \
+	for module in `ls $$dirUnit | grep -e '^test_'`; \
+	do \
+	    echo python $$dirUnit/$$module; \
+	done;
+
 
 .PHONY: help
 help:
 	@echo 'Usage: <command>'
 	@echo ''
 	@echo Command:
+	@echo '    test'
 	@echo '    server_test'
 	@echo '    mongo_client'
