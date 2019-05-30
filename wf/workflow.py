@@ -337,6 +337,9 @@ class WorkflowBuilder(object):
     def get_decision(self):
         return get_cur_wf().get_decision()
 
+    def get_property(self, name, namespace=''):
+        return wf.service_router.get_prop_mgr.get_property(name=name, namespace=namespace)
+
     def task(self, task_name, entrance=False, **to):
         return self._wf.task(task_name, entrance, **to)
 
