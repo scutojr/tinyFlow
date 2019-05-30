@@ -105,7 +105,7 @@ class TestAPI(unittest.TestCase):
 
             print '@@@@:', wf_ids
             wf_ids = json.loads(wf_ids)
-            time.sleep(0.5)
+            time.sleep(2)
             for wf_id in wf_ids:
                 print '@@@@ state is ', self._get_wf_state(wf_id)
                 self.assertTrue(self._get_wf_state(wf_id) == WfStates.asking.state)

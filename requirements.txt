@@ -2,4 +2,4 @@ flask
 tornado==4.5
 mongoengine
 stomp.py==4.1.20
-nose>=1.2.0
+mock>=3.0.0

@@ -326,16 +326,16 @@ class WorkflowBuilder(object):
         self.event_subscriptions = event_subscriptions
 
     def goto(self, next_task_name, reason=None):
-        get_cur_wf().goto(next_task_name, reason)
+        return get_cur_wf().goto(next_task_name, reason)
 
     def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
-        get_cur_wf().wait(event, to_state, timeout_ms, goto=goto, on_timeout=on_timeout)
+        return get_cur_wf().wait(event, to_state, timeout_ms, goto=goto, on_timeout=on_timeout)
 
     def ask(self, desc, options, goto):
-        get_cur_wf().ask(desc, options, goto)
+        return get_cur_wf().ask(desc, options, goto)
 
     def get_decision(self):
-        get_cur_wf().get_decision()
+        return get_cur_wf().get_decision()
 
     def task(self, task_name, entrance=False, **to):
         return self._wf.task(task_name, entrance, **to)
@@ -344,7 +344,7 @@ class WorkflowBuilder(object):
         return self._wf.add_task(task_name, func, **to)
 
     def end(self):
-        get_cur_wf().end()
+        return get_cur_wf().end()
 
     def __str__(self):
         return str(self._wf)

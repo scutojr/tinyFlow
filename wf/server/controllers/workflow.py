@@ -97,6 +97,7 @@ def wf_info(wf_id):
 @bp.route('/userDecisions/<ctx_id>', methods=['GET', 'POST'])
 def user_decision(ctx_id):
     """
+    TODO: the url is wrong for GET request
     http params:
         decision;
         comment
@@ -112,6 +113,7 @@ def user_decision(ctx_id):
         comment = args['comment']
 
         context.make_decision(decision, comment)
+
         wf = wf_manager.get_workflow(context.wf)
         wf_executor.execute_async(workflow=wf, ctx=context)
 

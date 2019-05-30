@@ -14,8 +14,12 @@ def get(host, port, endpoint):
     return resp.status, resp.reason, resp.read()
 
 
-def post(host, port, endpoint, body=None):
+def post(host, port, endpoint, body=None, method=None):
     conn = HTTPConnection(host, port)
-    conn.request('POST', endpoint, body)
+    conn.request(method or 'POST', endpoint, body)
     resp = conn.getresponse()
     return resp.status, resp.reason, resp.read()
+
+
+def delete(host, port, endpoint, body=None):
+    return post(host, port, endpoint, body, 'DELETE')

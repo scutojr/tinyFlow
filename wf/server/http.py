@@ -19,11 +19,12 @@ class HttpServer(object):
         self.server = None
 
     def start(self):
-        from .controllers import admin, workflow
+        from .controllers import admin, workflow, prop_mgr
         app, port = self.app, self.port
 
         app.register_blueprint(admin)
         app.register_blueprint(workflow)
+        app.register_blueprint(prop_mgr)
 
         for rule in app.url_map.iter_rules():
             print(rule)

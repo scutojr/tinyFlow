@@ -8,10 +8,13 @@ from wf import service_router
 from wf.server import HttpServer
 from wf.workflow import WorkflowManager
 from wf.executor import WorkflowExecutor
+from wf.config import PropertyManager
 from wf.server.reactor import EventManager
 
 
 PACK_DIR = 'pack_dir'
+
+http_server = None
 
 
 def parse_opts(args):
@@ -35,8 +38,8 @@ def _config_log():
     pass
 
 
-def set_up(db = True, log = True):
-    options = parse_opts(sys.argv)
+def set_up(argv, db = True, log = True):
+    options = parse_opts(argv)
     config.load(options.file)
     _config_log()
     _connect_db()
@@ -48,19 +51,22 @@ def start_services():
     wf_manager = WorkflowManager(pack_dir)
     wf_executor = WorkflowExecutor()
     event_manager = EventManager(wf_manager)
+    prop_mgr = PropertyManager()
 
     service_router.set_wf_manager(wf_manager)
     service_router.set_wf_executor(wf_executor)
     service_router.set_event_manager(event_manager)
+    service_router.set_prop_mgr(prop_mgr)
 
 
-def main():
-    set_up()
+def main(argv):
+    set_up(argv)
     start_services()
 
+    global http_server
     http_server = HttpServer('workflow', 54321)
     http_server.start()
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv)

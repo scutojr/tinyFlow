@@ -14,10 +14,17 @@ then
 fi
 
 # start mongodb server in the background
-mongo=`docker container ls | grep $MONGO_SERVER`
-if [ ! -n "$mongo" ]
+runningMongo=`docker container ls | grep $MONGO_SERVER`
+deadMongo=`docker ps -a -f "name=$MONGO_SERVER" | grep $MONGO_SERVER`
+if [ ! -n "$runningMongo" ]
 then
-    docker run --name=$MONGO_SERVER --network=$NETWORK_NAME -d mongo:3.2
+    if [ -n "$deadMongo" ]
+    then
+        mongoId=`echo $deadMongo | awk '{print $1}'`
+        docker container start $mongoId
+    else
+        docker run --name=$MONGO_SERVER --network=$NETWORK_NAME -d mongo:3.2
+    fi
 fi
 
 image_tmp='workflow:test_tmp'

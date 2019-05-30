@@ -8,13 +8,13 @@ from wf.server.reactor.event import Event
 from wf.workflow import Workflow, Context, Parameter, ParamSource
 from wf.executor import WorkflowExecutor, context
 
+import tests.utils.db as db
+
 
 class TestWorkFlow(unittest.TestCase):
 
     def setUp(self):
-        db = 'test'
-        host, port = 'mongo_test_server', 27017
-        connect(db, host=host, port=port)
+        db.connect()
 
     def test_wf_builder(self):
         print '===== test wf builder ====='

@@ -21,7 +21,7 @@ test: .unit
 	@dirUnit='tests/unit'; \
 	for module in `ls $$dirUnit | grep -e '^test_'`; \
 	do \
-	    echo python $$dirUnit/$$module; \
+	    python $$dirUnit/$$module; \
 	done;
 
 
