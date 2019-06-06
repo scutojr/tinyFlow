@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
-import ReactDOM from 'react-dom';
-import { Button, Card, CardBody, CardHeader, Row, Col } from 'reactstrap';
+import { Card, CardBody, CardHeader, Row, Col } from 'reactstrap';
 
 import WorkflowDiagram from './WorkflowDiagram';
 
@@ -20,10 +19,7 @@ const workflowData = {
 };
 
 
-class Workflow extends React.Component {
-	constructor(props) {
-		super(props);
-	}
+class Workflow extends Component {
 
 	render() {
 		return (

@@ -1,21 +1,15 @@
 import React, { Component } from 'react';
 import * as dagre from "dagre";
 import * as _ from "lodash";
-
 import {
 	DiagramEngine,
 	DiagramModel,
 	DefaultNodeModel,
-	LinkModel,
 	DefaultPortModel,
 	DiagramWidget,
-	DefaultLinkModel
 } from "storm-react-diagrams";
-
 import "storm-react-diagrams/src/sass/main.scss";
 
-
-let count = 1;
 
 const size = {
 	width: 60,
@@ -144,10 +138,9 @@ class WorkflowDiagram extends Component {
 		let model = new DiagramModel();
 
 		let nodes = new Map();
-		let links = new Array();
+		let links = [];
 
 		const graph = workflowData.graph;
-		let x = 100, y = 100;
 		for (let task in graph) {
 			let node = this.createNode(task);
 			nodes.set(task, node)

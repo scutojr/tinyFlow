@@ -2,17 +2,11 @@ export default {
   items: [
     {
       name: 'Dashboard',
-      url: '/dashboard',
+      url: '/wf/dashboard',
       icon: 'icon-speedometer',
       badge: {
         variant: 'info',
-        text: 'NEW',
       },
-    },
-    {
-      name: 'WfDashboard',
-      url: '/wf/dashboard',
-      icon: 'icon-calculator'
     },
     {
       name: 'Events',

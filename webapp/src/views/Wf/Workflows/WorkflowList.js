@@ -35,10 +35,6 @@ let wfs = {
 
 class WorkflowList extends Component {
 
-  constructor(props) {
-    super(props);
-  }
-
   render() {
     let path = this.props.match.path;
     let headers = ["Name", "Description"];

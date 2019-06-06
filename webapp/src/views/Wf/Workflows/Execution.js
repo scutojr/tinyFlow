@@ -1,8 +1,8 @@
 import React, { Component } from 'react';
 import {
-  Badge, Card, CardBody,
-  CardFooter, CardHeader,
-  Col, Row, Collapse, Fade,
+  Card, CardBody,
+  CardHeader,
+  Col, Row,
   Nav, NavItem, NavLink
 } from 'reactstrap';
 
@@ -25,9 +25,6 @@ const workflowData = {
 
 
 class Execution extends Component {
-  constructor(props) {
-    super(props);
-  }
 
   render() {
     return (
