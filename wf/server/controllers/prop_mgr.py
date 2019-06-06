@@ -39,12 +39,14 @@ def manage_prop(name=''):
 
     try:
         if method == 'GET':
-            if name:
-                ans = prop_mgr.get_property(name, namespace) # TODO: deal with None
-                if ans:
+            ans = prop_mgr.get_property(name, namespace)
+            if ans:
+                if isinstance(ans, list):
+                    ans = (p.to_mongo() for p in prop_mgr.get_property(namespace=namespace))
+                else:
                     ans = ans.to_mongo()
             else:
-                ans = (p.to_mongo() for p in prop_mgr.get_property(namespace=namespace))
+                ans = None
             rsp['response'] = ans
         elif method == 'POST':
             body = json.loads(request.data)

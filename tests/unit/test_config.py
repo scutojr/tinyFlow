@@ -11,6 +11,8 @@ import wf.config as config
 import tests.utils.db as db
 import tests.utils.http as http
 import tests.utils.server as server
+from wf import service_router
+
 
 FAIL = 'FAILED'
 SUCC = 'SUCCESSFUL'
@@ -192,18 +194,16 @@ class TestPropertyManagerByHttp(unittest.TestCase):
         return dict(name=name, value=value, description=description, vtype=vtype)
 
     def setUp(self):
-        self.api = PropMgrHttpApi('localhost', 54321)
-
         self.p1 = self._create_prop(name='p1', value='value-p1')
         self.p2 = self._create_prop(name='p2', value='value-p2')
         self.p3 = self._create_prop(name='p3', value='value-p3')
         self.p4 = self._create_prop(name='p4', value='value-p4')
-
         self.props = self._sort_props([self.p1, self.p2, self.p3, self.p4])
-
         self.ns = ['', 'n1', 'n2']
 
         server.start_server()
+        self.api = PropMgrHttpApi('localhost', 54321)
+        self.prop_mgr = service_router.get_prop_mgr()
 
     def tearDown(self):
         db.drop(config.PropertyPool)
@@ -231,14 +231,29 @@ class TestPropertyManagerByHttp(unittest.TestCase):
         self.assertTrue(list1 == self.props)
         self.assertTrue(list2 == self.props[:3])
 
-    def _test_get_prop(self):
-        # case that get a non-existed property
         # case test exception for special case
+        se = Exception('raised by mock to test DB error handling!')
+        prop_pool = self.prop_mgr.prop_pool
+        with patch.object(prop_pool, 'modify', new=Mock(side_effect=se)):
+            for prop in self.props:
+                rsp = self.api.update_property(namespace=n1, **prop)
+                print rsp
+                self.assertTrue(rsp['status'] == FAIL and 'exception' in rsp)
 
+    def _test_get_prop(self):
         n1 = self.ns[1]
+
         for prop in self.props:
             p = self.api.get_property(prop['name'], n1)['response']
             self.assertTrue(prop == p)
+
+        # case that get a non-existed property
+        # non-existed namesapce
+        rsp = self.api.get_property('random_name', 'not_existed_ns')['response']
+        self.assertTrue(rsp == None)
+        # non-existed prop
+        rsp = self.api.get_property('non_existed_name', n1)['response']
+        self.assertTrue(rsp == None)
 
     def _test_update_prop(self):
         n1 = self.ns[1]
