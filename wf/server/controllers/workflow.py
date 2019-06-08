@@ -118,3 +118,9 @@ def user_decision(ctx_id):
         wf_executor.execute_async(workflow=wf, ctx=context)
 
         return str(context.id)
+
+
+@bp.route('/reactor/events', methods=['GET'])
+def get_events():
+    # introduce cache here?
+    pass
