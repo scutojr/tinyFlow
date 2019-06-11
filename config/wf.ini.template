@@ -4,3 +4,7 @@
 [tinyFlow]
 #pack_dir=$HOME/tests/workflows
 pack_dir=/tmp/ojr/tests/workflows
+
+#mq_event_listener_enable=False
+#mq_topic=''
+#mq_address=h1:p1,h2:p2

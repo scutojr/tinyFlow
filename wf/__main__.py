@@ -10,6 +10,7 @@ from wf.workflow import WorkflowManager
 from wf.executor import WorkflowExecutor
 from wf.config import PropertyManager
 from wf.server.reactor import EventManager
+from wf.mq import EventListener
 
 
 PACK_DIR = 'pack_dir'
@@ -40,18 +41,38 @@ def _config_log():
 
 def set_up(argv, db = True, log = True):
     options = parse_opts(argv)
-    config.load(options.file)
+    conf = config.load(options.file)
     _config_log()
     _connect_db()
+    return conf
 
 
-def start_services():
+def _create_and_start_mq_listener():
+    enable = conf.get(config.MQ_EVENT_LISTENER_ENABLE, 'false').lower()
+    if enable == 'true':
+        topic = conf.get(config.MQ_TOPIC)
+        host_and_ports = conf.get(config.MQ_ADDRESS)
+
+        assert topic, 'topic format error: ' + topic
+        hap = []
+        for hp in host_and_port.split(','):
+            hp = hp.strip()
+            host, port = hp.split(':')
+            hap.append((host, int(port)))
+        listener = EventListener(hap, topic)
+        service_router.set_event_listener(listener)
+        listener.start_listening()
+
+
+def start_services(conf):
     pack_dir = config.configuration.get(PACK_DIR)
 
     wf_manager = WorkflowManager(pack_dir)
     wf_executor = WorkflowExecutor()
     event_manager = EventManager(wf_manager)
     prop_mgr = PropertyManager()
+
+    _create_and_start_mq_listener()
 
     service_router.set_wf_manager(wf_manager)
     service_router.set_wf_executor(wf_executor)
@@ -60,8 +81,8 @@ def start_services():
 
 
 def main(argv):
-    set_up(argv)
-    start_services()
+    conf = set_up(argv)
+    start_services(conf)
 
     global http_server
     http_server = HttpServer('workflow', 54321)

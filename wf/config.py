@@ -7,6 +7,11 @@ from threading import RLock
 
 HOME = op.abspath(op.join(op.dirname(__name__), '..'))
 
+PACK_DIR = 'pack_dir'
+MQ_EVENT_LISTENER_ENABLE = 'mq_event_listener_enable'
+MQ_TOPIC = 'mq_topic'
+MQ_ADDRESS = 'mq_address'
+
 
 __all__ = [
     'Configuration', 'Property', 'PropertyManager'

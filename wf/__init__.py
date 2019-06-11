@@ -40,5 +40,11 @@ class ServiceRouter(object):
     def set_prop_mgr(self, prop_mgr):
         self.prop_mgr = prop_mgr
 
+    def get_event_listener(self):
+        self.event_listener = listener
+
+    def set_event_listener(self, listener):
+        return self.event_listener
+
 
 service_router = ServiceRouter()

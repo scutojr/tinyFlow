@@ -1,9 +1,14 @@
 import sys
 import time
+import json
 import logging
 from threading import Thread
 
-import stomp
+from stomp import ConnectionListener, Connection
+from stomp.exception import ConnectFailedException
+
+from wf import service_router
+from wf.server.reactor.event import Event
 
 
 __all__ = [
@@ -11,7 +16,7 @@ __all__ = [
 ]
 
 
-class EventListener(stomp.ConnectionListener):
+class EventListener(ConnectionListener):
 
     def __init__(self, host_and_ports, topic, username=None, password=None):
         self.topic = topic
@@ -19,22 +24,32 @@ class EventListener(stomp.ConnectionListener):
         self.username = username
         self.password = password
         self.should_reconnect = True
-        self.conn = stomp.Connection()
+        self.conn = Connection(host_and_ports)
+        self.conn.set_listener('', self)
         self.logger = logging.getLogger(EventListener.__name__)
+        self.subscription_id = 94
 
-    def _connect_and_subscribe(self):
-        # log here
-        conn.set_listener('', self)
-        conn.start()
-        conn.connect(self.username, self.password, wait=True)
-        conn.subscribe(destination=self.topic, id=1, ack='client')
+    def _connect_and_subscribe(self, ack='auto'):
+        conn = self.conn
+        try:
+            self.logger.info('tring to connect AMQ: ' + str(self.host_and_ports))
+            conn.connect(self.username, self.password, wait=True)
+            conn.subscribe(destination=self.topic, id=self.subscription_id, ack=ack)
+        except ConnectFailedException as e:
+            self.logger.exception(
+                'failed to connect AMQ: ' + str(self.host_and_ports)
+            )
 
     def _disconnect(self):
         self.conn.disconnect()
 
-    def start_listening(self):
+    def start_listening(self, ack='auto'):
+        """
+        :param ack: either auto, client or client-individual
+        """
         self.should_reconnect = True
-        self._connect_and_subscribe()
+        self.event_mgr = service_router.get_event_manager()
+        self._connect_and_subscribe(ack)
 
     def stop_listening(self):
         self.should_reconnect = False
@@ -45,19 +60,33 @@ class EventListener(stomp.ConnectionListener):
 
     def on_disconnected(self):
         # TODO: if exception occurs here, will the listener exit?
-        if self.should_reconnect:
-            self._connect_and_subscribe()
+        self.logger.warn(
+            'connection to amq %s is closed unexpectedly' % str(self.host_and_ports)
+        )
+        while self.should_reconnect:
+            try:
+                self._connect_and_subscribe()
+            except ConnectFailedException as e:
+                self.logger.exception(
+                    'failed to reconnect to amq: ' + str(self.host_and_ports)
+                )
+                time.sleep(5)
+            else:
+                break
 
     def on_message(self, headers, message):
-        print('received a message "%s"' % message)
+        # TODO: should we validate the message format and field type here?
+        try:
+            event = Event.from_json(message)
+            self.event_mgr.receive_event(event=event)
+        except:
+            self.logger.exception('failed to process message: ' + message)
+        else:
+            msg_id = headers['message-id']
+            self.conn.ack(msg_id, self.subscription_id)
 
-    def on_error(self, headers, message):
+    def on_ggGerror(self, headers, message):
         print('received an error "%s"' % message)
-
-
-def main():
-    host_and_ports = [('host', 'port')]
-    listener = EventListener(host_and_ports, 'test')
 
 
 if __name__ == '__main__':

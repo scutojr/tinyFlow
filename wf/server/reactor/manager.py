@@ -20,6 +20,31 @@ class EventManager(Thread):
         event_with_hook = EventWithHook.from_event(event, to_state, ctx_id, now_ms() + duration_ms)
         event_with_hook.save()
 
+    def receive_event(self, event=None, wf_name=None, extra_params=None):
+        """
+        :return: [list of wf id, list of AsyncResult]
+        """
+        ids = []
+        async_res = []
+        new_wfs = wf_manager.get_wf_from_event(event)
+        hooks = self.get_hooks(event)
+
+        if wf_name:
+            new_wfs = filter(lambda wf: wf.name == wf_name, new_wfs)
+            hooks = filter(lambda hook: hook[0].name == wf_name, hooks)
+
+        for wf in new_wfs:
+            wf.set_request(extra_params, event)
+            ctx_id, async_result = wf_executor.execute_async(wf, event)
+            ids.append(str(ctx_id))
+            async_res.append(async_result)
+        for wf, ctx in hooks:
+            wf.set_request(extra_params, event)
+            _, async_result = wf_executor.execute_async(wf, event, ctx)
+            ids.append(str(ctx.id))
+            async_res.append(async_result)
+        return ids, async_res
+
     def get_hooks(self, event):
         """
         :param event:
