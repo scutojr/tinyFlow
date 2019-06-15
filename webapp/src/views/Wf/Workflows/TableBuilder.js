@@ -7,6 +7,7 @@ const propTypes = {
   headers: PropTypes.array,
   datas: PropTypes.array
 };
+
 const defaultProps = {
   headers: [],
   datas: []

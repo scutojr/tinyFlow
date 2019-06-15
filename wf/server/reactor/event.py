@@ -28,7 +28,10 @@ class Event(me.Document):
     source = me.StringField(default='')
 
     meta = {
-        'allow_inheritance': True
+        'allow_inheritance': True,
+        'indexes': [
+            'start',
+        ]
     }
 
     @staticmethod
