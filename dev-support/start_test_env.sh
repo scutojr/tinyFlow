@@ -11,6 +11,8 @@ MONGO_IMAGE='mongo:3.2'
 AMQ_SERVER='amq_test_server'
 AMQ_IMAGE='webcenter/activemq:latest'
 
+PORT=54321
+
 # create customized network
 network=`docker network ls | grep $NETWORK_NAME`
 if [ ! -n "$network" ]
@@ -52,4 +54,5 @@ docker run --rm=true -it \
     --network=$NETWORK_NAME \
     -w $PROJECT_ROOT \
     -v $CWD:$PROJECT_ROOT \
+    -p $PORT:$PORT \
     $image_tmp
