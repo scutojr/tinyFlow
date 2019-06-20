@@ -156,19 +156,19 @@ class PropMgrHttpApi():
         self.p = port
 
     def get_property(self, name, namespace=''):
-        endpoint = '/properties/' + name
+        endpoint = '/tobot/properties/' + name
         if namespace:
             endpoint += '?namespace=' + namespace
         status, reason, msg = http.get(self.h, self.p, endpoint)
         return json.loads(msg)
 
     def list_property(self, namespace=''):
-        endpoint = '/properties/?namespace=' + namespace
+        endpoint = '/tobot/properties/?namespace=' + namespace
         status, reason, msg = http.get(self.h, self.p, endpoint)
         return json.loads(msg)
 
     def remove_property(self, name, namespace=''):
-        endpoint = '/properties/' + name
+        endpoint = '/tobot/properties/' + name
         if namespace:
             endpoint += '?namespace=' + namespace
         return http.delete(self.h, self.p, endpoint)
@@ -180,7 +180,7 @@ class PropMgrHttpApi():
         description and body.update(description=description)
         vtype and body.update(vtype=vtype)
 
-        endpoint = '/properties/' + name
+        endpoint = '/tobot/properties/' + name
         if namespace:
             endpoint += '?namespace=' + namespace
 

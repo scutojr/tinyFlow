@@ -13,7 +13,7 @@ HOST, PORT = 'localhost', 54321
 class TestAPI(unittest.TestCase):
 
     def _get_wf_state(self, wf_id):
-        endpoint = '/workflows/info/' + wf_id
+        endpoint = '/tobot/workflows/info/' + wf_id
         status, reason, msg = http.get(HOST, PORT, endpoint)
         wf = json.loads(msg)
         return wf['state']
@@ -29,7 +29,7 @@ class TestAPI(unittest.TestCase):
     def test_user_define_param(self):
         def call(change=None, event=None):
             wf_name = 'define_param_wf'
-            endpoint = '/reactor/workflows/' + wf_name
+            endpoint = '/tobot/reactor/workflows/' + wf_name
             if change:
                 endpoint += '?change=' + str(change)
             if event is None:
@@ -58,7 +58,7 @@ class TestAPI(unittest.TestCase):
 
     def test_async_wf_and_wf_state(self):
         wf_name = 'sleepy_wf'
-        endpoint = '/reactor/workflows/?async=yes'
+        endpoint = '/tobot/reactor/workflows/?async=yes'
         event = self._get_event('sleepy_test')
         status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
         wf_ids = json.loads(wf_ids)
@@ -73,7 +73,7 @@ class TestAPI(unittest.TestCase):
         wf_name = 'waited_workflow'
         event_name = 'server_down'
 
-        endpoint = '/reactor/workflows/%s?async=yes' % wf_name
+        endpoint = '/tobot/reactor/workflows/%s?async=yes' % wf_name
         event = self._get_event(event_name)
         status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
 
@@ -84,7 +84,7 @@ class TestAPI(unittest.TestCase):
             print '@@@@@@@@@@@@@@@:', wf_id, self._get_wf_state(wf_id)
         time.sleep(2)
 
-        endpoint = '/reactor/workflows/%s?async=yes' % wf_name
+        endpoint = '/tobot/reactor/workflows/%s?async=yes' % wf_name
         event = self._get_event(event_name, state=EventState.INFO)
         status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
 
@@ -99,7 +99,7 @@ class TestAPI(unittest.TestCase):
         event_name = 'stop_service'
 
         def trigger_wfs():
-            endpoint = '/reactor/workflows/%s?async=yes' % wf_name
+            endpoint = '/tobot/reactor/workflows/%s?async=yes' % wf_name
             event = self._get_event(event_name)
             status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
 
@@ -111,7 +111,7 @@ class TestAPI(unittest.TestCase):
                 self.assertTrue(self._get_wf_state(wf_id) == WfStates.asking.state)
 
         def make_decision():
-            endpoint = '/userDecisions/%s' # TODO: refact this url so that it can be used as merely /userDecisions
+            endpoint = '/tobot/userDecisions/%s' # TODO: refact this url so that it can be used as merely /userDecisions
             status, reason, wfs = http.get(HOST, PORT, endpoint)
             wfs = json.loads(wfs)
             for wf in wfs:
