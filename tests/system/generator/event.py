@@ -90,6 +90,9 @@ class MongoPublisher(Publisher):
 
     def publish(self, event):
         event.save()
+        print event.id
+        if event.state == 'CRITICAL':
+            print event.to_mongo()
 
 
 class EventFactory(object):
@@ -128,20 +131,18 @@ class EventFactory(object):
             time.sleep(5)
 
     def evolve(self, raw_event, states):
-        event = Event(**raw_event)
-        size = len(states)
         next_shot = 0
-        for i, state in enumerate(states):
+        for state in states:
             while True:
                 now = time.time()
                 if next_shot < now:
-                    event.state = state
+                    raw_event['state'] = state
                     next_shot = now + random.randint(5, 10)
                     break
                 else:
                     yield
-            event.start = int(time.time() * 1000)
-            self.publisher.publish(event)
+            raw_event['start'] = int(time.time() * 1000)
+            self.publisher.publish(Event(**raw_event))
 
     def populate(self):
         return permutation(
