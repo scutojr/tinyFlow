@@ -8,8 +8,6 @@ import {
   FormGroup,
   Input,
   Button,
-  InputGroup,
-  InputGroupAddon,
   Label,
   Row,
   Card,
@@ -20,25 +18,27 @@ import {
 
 import ReactTable from 'react-table'
 import 'react-table/react-table.css'
-
-
-function parseUrlParams(props) {
-  let search = new URLSearchParams(props.location.search);
-  let params = {};
-  let { name, tags, entity, state, startBefore, startAfter } = search;
-  if (name) params.name = name;
-  if (tags) params.tags = tags;
-  if (entity) params.entity = entity;
-  if (state) params.state = state;
-  if (startBefore) params.startBefore = startBefore;
-  if (startAfter) params.startAfter = startAfter;
-  return params;
-}
+import DateTimeRangePicker from '@wojtekmaj/react-datetimerange-picker';
 
 
 class EventFilter extends Component {
   constructor(props) {
     super(props);
+
+    let nowMs = Date.now();
+    let { startBefore, startAfter } = props;
+    startBefore = parseInt(startBefore);
+    startAfter = parseInt(startAfter);
+
+    startBefore = isNaN(startBefore) ? nowMs : startBefore;
+    startAfter = isNaN(startAfter) ? nowMs - (7 * 24 * 3600 * 1000) : startAfter;
+
+    this.state = {
+      hideTimePicker: true,
+      startBefore: startBefore,
+      startAfter: startAfter
+    }
+
     this.inputName = React.createRef();
     this.inputTags = React.createRef();
     this.inputEntity = React.createRef();
@@ -49,14 +49,11 @@ class EventFilter extends Component {
 
   _nameSelector() {
     const onChange = (value, items, setItems) => {
-      const newItems = [
-        "name-1",
-        "name-2",
-        "name-3",
-        "name-4",
-        "name-5"
-      ]
-      setItems(newItems);
+      Axios.get('/tobot/web/events/names').then(
+        (res) => {
+          setItems(res.data);
+        }
+      )
     }
     return (
       <FormGroup>
@@ -72,14 +69,11 @@ class EventFilter extends Component {
 
   _tagsSlector() {
     const onChange = (value, items, setItems) => {
-      const newItems = [
-        "k1=v1",
-        "k2=v2",
-        "k3=v3",
-        "k4=v4",
-        "k5=v5"
-      ]
-      setItems(newItems);
+      Axios.get('/tobot/web/events/tags').then(
+        (res) => {
+          setItems(res.data);
+        }
+      )
     }
     return (
       <FormGroup>
@@ -95,14 +89,13 @@ class EventFilter extends Component {
 
   _endpointSelector() {
     const onChange = (value, items, setItems) => {
-      const newItems = [
-        "host1",
-        "host2",
-        "host3",
-        "host4",
-        "host5"
-      ]
-      setItems(newItems);
+      if (items.length == 0) {
+        Axios.get('/tobot/web/events/entities').then(
+          (res) => {
+            setItems(res.data);
+          }
+        )
+      }
     }
     return (
       <FormGroup>
@@ -130,21 +123,23 @@ class EventFilter extends Component {
   }
 
   _timeSelector() {
+    const { startAfter, startBefore } = this.state;
     return (
       <FormGroup>
-        <Label htmlFor="cvv">
-          Time
-        </Label>
-        <InputGroup>
-          <InputGroupAddon addonType="prepend">
-            <Button type="button" color="dark">
-              <i className="cui-calendar icons" />
-            </Button>
-          </InputGroupAddon>
-          <Input type="text" id="input1-group2" name="input1-group2" placeholder="Now" />
-        </InputGroup>
+        <Label htmlFor="cvv">Time</Label>
+        <DateTimeRangePicker
+          onChange={(value) => {
+            this.setState({
+              startAfter: value[0].getTime(),
+              startBefore: value[1].getTime()
+            })
+          }}
+          value={[
+            new Date(startAfter),
+            new Date(startBefore)
+          ]} />
       </FormGroup>
-    );
+    )
   }
 
   render() {
@@ -156,13 +151,18 @@ class EventFilter extends Component {
           const name = this.inputName.current.getInputValue();
           const tags = this.inputTags.current.getInputValue();
           const entity = this.inputEntity.current.getInputValue();
+          const startBefore = this.state.startBefore.toString();
+          const startAfter = this.state.startAfter.toString();
           let path = history.location.pathname + "?";
           if (name) params.name = name;
           if (tags) params.tags = tags;
           if (entity) params.entity = entity;
+          params.startBefore = startBefore;
+          params.startAfter = startAfter;
           const search = new URLSearchParams(params).toString();
           if (search) {
             history.replace(`${path}${search}`);
+            // history.push(`${path}${search}`);
           }
         }}
       >
@@ -189,7 +189,7 @@ class EventFilter extends Component {
           </Col>
         </Row>
         <Row>
-          <Btn/>
+          <Btn />
         </Row>
       </div>
     );
@@ -236,14 +236,10 @@ class ReactTableDemo extends Component {
     }, {
       Header: "Happened At",
       accessor: "start",
+      Cell: (props) => new Date(props.value).toString()
     }
     ];
     this.generateData();
-  }
-
-  buildQueryURL() {
-    let params = parseUrlParams(this.props);
-    this.queryURL = "";
   }
 
   generateData(limit) {
@@ -305,6 +301,19 @@ class ReactTableDemo extends Component {
     }
   }
 
+
+  _buildQueryURL = (startBefore, limit) => {
+    const query = this.props.query;
+    const params = new URLSearchParams();
+    for (let [key, value] of Object.entries(query)) {
+      params.set(key, value);
+    }
+    if (startBefore) {
+      params.set("startBefore", startBefore);
+    }
+    return "/tobot/web/events?" + params.toString();
+  }
+
   fetchEventData = (startBefore, limit) => {
     this.setState({
       loading: true
@@ -312,19 +321,23 @@ class ReactTableDemo extends Component {
     let callback = ((res) => {
       let { data, pageSize } = this.state;
       let newData = [];
-      newData.push(...data, ...this.generateData(this.limit));
+      newData.push(...data, ...res.data);
       this.setState({
         loading: false,
         pages: Math.ceil(newData.length * 1.0 / pageSize),
         data: newData
       })
     })
-    Axios.get(this.queryURL).then(callback, callback);
+    const url = this._buildQueryURL(startBefore, limit);
+    console.log("################# ", url);
+    Axios.get(url).then(callback, (res) => {
+      console.log("=====", res);
+    });
   }
 
   componentDidMount = (() => {
-    let timestamp = Math.floor(Date.now());
-    this.fetchEventData(timestamp, this.limit);
+    let startBefore = this.props.startBefore;
+    this.fetchEventData(startBefore, this.limit);
   });
 
   onPageChannge = ((pageIndex, pageSize) => {
@@ -335,6 +348,8 @@ class ReactTableDemo extends Component {
     let pos = pageIndex * pageSize
     if (pos >= data.length) {
       let lastEvent = data[data.length - 1];
+      console.log(data[0]);
+      console.log(lastEvent);
       this.fetchEventData(lastEvent.start - 1, this.limit);
     }
     this.setState({
@@ -440,27 +455,44 @@ AutoCompleteInput.defaultProps = defaultProps;
 
 class EventsPage extends Component {
 
+  parseUrlParams() {
+    let search = new URLSearchParams(this.props.location.search);
+    let params = {};
+
+    if (search.has("name")) params.name = search.get("name");
+    if (search.has("tags")) params.tags = search.get("tags");
+    if (search.has("entity")) params.entity = search.get("entity");
+    if (search.has("state")) params.state = search.get("state");
+
+    let nowMs = Date.now()
+    params.startBefore = search.has("startBefore") ? search.get("startBefore") : nowMs;
+    params.startAfter = search.has("startAfter") ? search.get("startAfter") : nowMs - (7 * 24 * 3600 * 1000);
+
+    return params;
+  }
+
   render() {
-    let search = parseUrlParams(this.props);
+    let query = this.parseUrlParams();
+
     return (
       <div className="animated fadeIn">
-          <Card>
-            <CardHeader>
-              Event Filter
+        <Card>
+          <CardHeader>
+            Event Filter
           </CardHeader>
-            <CardBody>
-              <EventFilter />
-            </CardBody>
-          </Card>
+          <CardBody>
+            <EventFilter {...query} />
+          </CardBody>
+        </Card>
 
-          <Card>
-            <CardHeader>
-              Event Info
+        <Card>
+          <CardHeader>
+            Event Info
           </CardHeader>
-            <CardBody>
-              <ReactTableDemo />
-            </CardBody>
-          </Card>
+          <CardBody>
+            <ReactTableDemo query={query} />
+          </CardBody>
+        </Card>
       </div>
     )
   }
