@@ -113,9 +113,12 @@ class EventFilter extends Component {
     return (
       <FormGroup>
         <Label htmlFor="cvv">Event State</Label>
-        <Input type="select" id="cvv" required >
+        <Input type="select" id="cvv" required
+          onChange={(e) => { this.eventState = e.target.value }}
+        >
+          <option value="ALL"> ALL </option>
           <option value="INFO"> INFO </option>
-          <option value="WARN"> WARN </option>
+          <option value="WARNING"> WARNING </option>
           <option value="CRITICAL"> CRITICAL </option>
         </Input>
       </FormGroup>
@@ -157,12 +160,14 @@ class EventFilter extends Component {
           if (name) params.name = name;
           if (tags) params.tags = tags;
           if (entity) params.entity = entity;
+          if (this.eventState != "ALL") {
+            params.state = this.eventState;
+          }
           params.startBefore = startBefore;
           params.startAfter = startAfter;
           const search = new URLSearchParams(params).toString();
           if (search) {
             history.replace(`${path}${search}`);
-            // history.push(`${path}${search}`);
           }
         }}
       >
@@ -209,6 +214,16 @@ class ReactTableDemo extends Component {
       pageSize: 10,
     };
     this.limit = 100;
+    if (this.props.history != undefined) {
+      this.props.history.listen((location, action) => {
+        this.setState({
+          page: 0,
+          data: [] // clear the history immediately
+        })
+        const url = this._buildQueryURL({query: location.search});
+        this.fetchEventData(url);
+      });
+    }
     this.columns = [{
       Header: "Event Name",
       accessor: "name",
@@ -239,7 +254,7 @@ class ReactTableDemo extends Component {
       Cell: (props) => new Date(props.value).toString()
     }
     ];
-    this.generateData();
+    // this.generateData();
   }
 
   generateData(limit) {
@@ -302,23 +317,19 @@ class ReactTableDemo extends Component {
   }
 
 
-  _buildQueryURL = (startBefore, limit) => {
-    const query = this.props.query;
-    const params = new URLSearchParams();
-    for (let [key, value] of Object.entries(query)) {
-      params.set(key, value);
-    }
+  _buildQueryURL = ({ startBefore, limit, query = this.props.query }) => {
+    const params = new URLSearchParams(query);
     if (startBefore) {
       params.set("startBefore", startBefore);
     }
     return "/tobot/web/events?" + params.toString();
   }
 
-  fetchEventData = (startBefore, limit) => {
+  fetchEventData = (url) => {
     this.setState({
       loading: true
     })
-    let callback = ((res) => {
+    Axios.get(url).then(((res) => {
       let { data, pageSize } = this.state;
       let newData = [];
       newData.push(...data, ...res.data);
@@ -327,17 +338,14 @@ class ReactTableDemo extends Component {
         pages: Math.ceil(newData.length * 1.0 / pageSize),
         data: newData
       })
-    })
-    const url = this._buildQueryURL(startBefore, limit);
-    console.log("################# ", url);
-    Axios.get(url).then(callback, (res) => {
-      console.log("=====", res);
-    });
+    }));
   }
 
   componentDidMount = (() => {
     let startBefore = this.props.startBefore;
-    this.fetchEventData(startBefore, this.limit);
+    let limit = this.limit;
+    const url = this._buildQueryURL({ startBefore, limit })
+    this.fetchEventData(url);
   });
 
   onPageChannge = ((pageIndex, pageSize) => {
@@ -348,9 +356,8 @@ class ReactTableDemo extends Component {
     let pos = pageIndex * pageSize
     if (pos >= data.length) {
       let lastEvent = data[data.length - 1];
-      console.log(data[0]);
-      console.log(lastEvent);
-      this.fetchEventData(lastEvent.start - 1, this.limit);
+      const url = this._buildQueryURL({ startBefore: lastEvent.start - 1, limit: this.limit })
+      this.fetchEventData(url);
     }
     this.setState({
       page: pageIndex,
@@ -454,6 +461,12 @@ AutoCompleteInput.defaultProps = defaultProps;
 
 
 class EventsPage extends Component {
+  constructor(props) {
+    super(props);
+    props.history.listen((location, action) => {
+      this.setState({});
+    });
+  }
 
   parseUrlParams() {
     let search = new URLSearchParams(this.props.location.search);
@@ -490,7 +503,7 @@ class EventsPage extends Component {
             Event Info
           </CardHeader>
           <CardBody>
-            <ReactTableDemo query={query} />
+            <ReactTableDemo query={query} history={this.props.history} />
           </CardBody>
         </Card>
       </div>
