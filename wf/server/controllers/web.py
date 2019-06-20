@@ -4,26 +4,37 @@ from flask import request
 from flask.blueprints import Blueprint
 
 from wf.server.reactor.event import Event
+from wf.utils import CacheRef, now_ms
 
 
-bp = Blueprint('workflow', __name__)
+TIMEOUT = 30 * 60 * 1000
+
+bp = Blueprint('web', __name__)
+
+cache_names = CacheRef(TIMEOUT)
+cache_entities = CacheRef(TIMEOUT)
+cache_tags = CacheRef(24 * 3600 * 1000)
 
 
-# TODO: introduce cache
-
-
+@bp.route('/web/events/names', methods=['GET'])
 def get_event_names():
-    return json.dumps(Event.get_names())
+    names = cache_names.set_if_expired_and_get(Event.get_names)
+    return json.dumps(names)
 
 
+@bp.route('/web/events/entities', methods=['GET'])
 def get_entities():
-    return json.dumps(Event.get_entities())
+    entities = cache_entities.set_if_expired_and_get(Event.get_entities)
+    return json.dumps(entities)
 
 
+@bp.route('/web/events/tags', methods=['GET'])
 def get_tags():
-    return json.dumps(Event.get_tags())
+    tags = cache_tags.set_if_expired_and_get(Event.get_tags)
+    return json.dumps(tags)
 
 
+@bp.route('/web/events', methods=['GET'])
 def get_events():
     args = request.args
 
@@ -41,8 +52,8 @@ def get_events():
         entity=entity,
         tags=tags,
         state=state,
-        start_before=start_before,
-        start_after=start_after
+        start_before=start_before and int(start_before),
+        start_after=start_after and int(start_after)
     )
-    events.limit(limit)
+    events = events.limit(limit).order_by('-start')
     return json.dumps(events.as_pymongo())

@@ -19,12 +19,14 @@ class HttpServer(object):
         self.server = None
 
     def start(self):
-        from .controllers import admin, workflow, prop_mgr
+        from .controllers import admin, workflow, prop_mgr, web
         app, port = self.app, self.port
 
-        app.register_blueprint(admin)
-        app.register_blueprint(workflow)
-        app.register_blueprint(prop_mgr)
+        prefix = '/tobot'
+        app.register_blueprint(admin, url_prefix=prefix)
+        app.register_blueprint(workflow, url_prefix=prefix)
+        app.register_blueprint(prop_mgr, url_prefix=prefix)
+        app.register_blueprint(web, url_prefix=prefix)
 
         for rule in app.url_map.iter_rules():
             print(rule)
@@ -34,8 +36,10 @@ class HttpServer(object):
 
     def stop(self):
         self.server.stop()
+        self.io_loop.add_callback(self.io_loop.stop)
 
     def _launch_tornado(self, app, port):
         self.server = HTTPServer(WSGIContainer(app))
         self.server.listen(port)
-        IOLoop.instance().start()
+        self.io_loop = IOLoop.instance()
+        self.io_loop.start()

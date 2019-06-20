@@ -51,7 +51,7 @@ def set_up(argv, db = True, log = True):
     return conf
 
 
-def _create_and_start_mq_listener():
+def _create_and_start_mq_listener(conf):
     enable = conf.get(config.MQ_EVENT_LISTENER_ENABLE, 'false').lower()
     if enable == 'true':
         topic = conf.get(config.MQ_TOPIC)
@@ -76,7 +76,7 @@ def start_services(conf):
     event_manager = EventManager(wf_manager)
     prop_mgr = PropertyManager()
 
-    _create_and_start_mq_listener()
+    _create_and_start_mq_listener(conf)
 
     service_router.set_wf_manager(wf_manager)
     service_router.set_wf_executor(wf_executor)
