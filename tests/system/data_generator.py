@@ -1,4 +1,0 @@
-
-
-class EventFactory(object):
-    pass
