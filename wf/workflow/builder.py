@@ -1,4 +1,5 @@
 import wf
+from .workflow import Workflow
 
 
 get_cur_wf = None

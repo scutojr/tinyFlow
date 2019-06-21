@@ -1,5 +1,5 @@
-from bson.objectid import ObjectId
 import mongoengine as me
+from bson.objectid import ObjectId
 
 from wf.utils import now_ms
 from wf.server.reactor import Event, UserDecision
@@ -72,3 +72,9 @@ class Context(me.Document):
         """
         return Context.objects(state=WfStates.asking.state)
 
+    @staticmethod
+    def get_log(ctx_id):
+        ctx = Context.objects(id=ObjectId(ctx_id)).first()
+        if ctx == None:
+            return ctx
+        return ctx.msgs

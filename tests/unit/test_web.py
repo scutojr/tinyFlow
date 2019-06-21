@@ -5,6 +5,7 @@ import unittest
 from mock import patch, Mock
 
 from wf.server.reactor.event import Event
+from wf.workflow import Context
 from tests.utils import (
     db,
     http,
@@ -74,6 +75,19 @@ class TestWeb(unittest.TestCase):
         status, msg, rsp = http.get(host, port, endpoint)
         events = json.loads(rsp)
         self.assertTrue(len(events) <= 1000)
+
+    def test_get_log(self):
+        ctx = Context()
+        msg = 'testing !'
+        ctx.log(msg, phase='test')
+        ctx.log(msg, phase='test')
+        ctx.log(msg, phase='test')
+        ctx.save()
+
+        endpoint = '/tobot/web/workflows/' + str(ctx.id) + '/log'
+        rsp = json.loads(http.get(host, port, endpoint)[2])
+        self.assertTrue(len(rsp) == 3)
+        self.assertTrue(msg in rsp[0])
 
 
 if __name__ == '__main__':

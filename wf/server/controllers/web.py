@@ -5,6 +5,7 @@ from flask.blueprints import Blueprint
 
 from wf.server.reactor.event import Event
 from wf.utils import CacheRef, now_ms
+from wf.workflow import Context
 
 
 TIMEOUT = 30 * 60 * 1000
@@ -57,3 +58,9 @@ def get_events():
     )
     events = events.limit(limit).order_by('-start')
     return json.dumps(events.as_pymongo())
+
+
+@bp.route('/web/workflows/<wf_id>/log', methods=['GET'])
+def get_lot(wf_id):
+    log = Context.get_log(wf_id)
+    return json.dumps(log or [])

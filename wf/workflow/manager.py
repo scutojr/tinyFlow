@@ -3,6 +3,8 @@ from copy import deepcopy
 from collections import defaultdict
 from imp import find_module, load_module
 
+from .builder import WorkflowBuilder
+
 
 class WorkflowManager(object):
     def __init__(self, pack_dir):
