@@ -90,9 +90,6 @@ class MongoPublisher(Publisher):
 
     def publish(self, event):
         event.save()
-        print event.id
-        if event.state == 'CRITICAL':
-            print event.to_mongo()
 
 
 class EventFactory(object):

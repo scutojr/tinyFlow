@@ -1,16 +1,8 @@
-import os
 import json
-from copy import deepcopy
 from functools import partial
 from traceback import format_exc
-from collections import defaultdict
-from imp import find_module, load_module
-
-from bson.objectid import ObjectId
-import mongoengine as me
 
 import wf
-from .utils import now_ms
 from wf.server.reactor import Event, EventState, UserDecision
 
 
@@ -54,121 +46,6 @@ class EventSubcription(object):
         return event.name, event.state
 
 
-class WorkflowManager(object):
-    def __init__(self, pack_dir):
-        self.pack_dir = pack_dir
-        self._workflows = {}
-        self._handlers = defaultdict(list)
-        self.load()
-
-    def _get_pack(self):
-        packs = os.listdir(self.pack_dir)
-        return [pack for pack in packs if pack.endswith('.py')]
-
-    def load(self):
-        for pack in self._get_pack():
-            if os.path.isfile(os.path.join(self.pack_dir, pack)):
-                suffix_index = pack.rfind('.')
-                if suffix_index > 0:
-                    pack = pack[:suffix_index]
-                file, pathname, desc = find_module(pack, [self.pack_dir])
-                module = load_module(pack, file, pathname, desc)
-                for attr in dir(module):
-                    wfb = getattr(module, attr)
-                    if isinstance(wfb, WorkflowBuilder):
-                        wf = wfb.wf()
-                        self._workflows[wf.name] = wf
-                        for key in wfb.get_subscription_keys():
-                            self._handlers[key].append(wf)
-
-    def get_workflows(self):
-        return self._workflows.values()
-
-    def get_workflow(self, name):
-        wf = self._workflows.get(name, None)
-        if wf:
-            wf = deepcopy(wf)
-        return wf
-
-    def get_wf_from_event(self, event):
-        """
-        :param event:
-        :return: list of matching workflow instance
-        """
-        key = EventSubcription.key_from_event(event)
-        wfs = self._handlers[key]
-        return deepcopy(wfs)
-
-    def get_wf_ctx(self, ctx_id):
-        ctx = Context.objects(id=ctx_id).first()
-        wf = self.get_workflow(ctx.wf)
-        return wf, ctx
-
-
-class Context(me.Document):
-    wf = me.StringField(default='')
-    props = me.DictField()
-    msgs = me.ListField()
-
-    source_event = me.ReferenceField(Event)
-    exec_history = me.ListField(me.StringField())
-    next_task = me.StringField(default='')
-    state = me.StringField(default='')
-
-    callbacks = me.ListField()
-
-    user_decision = me.EmbeddedDocumentField(UserDecision)
-
-    def __init__(self, *args, **kwargs):
-        super(Context, self).__init__(*args, **kwargs)
-
-    def get_prop(self, key, default=None):
-        return self.props.get(key, default)
-
-    def set_prop(self, key, value):
-        self.props[key] = value
-
-    def save(self):
-        event = self.source_event
-        if event and not event.id:
-            event.save()
-        super(Context, self).save()
-
-    def log(self, msg, time_ms=None):
-        self.msgs.append((time_ms or now_ms(), self.next_task, msg))
-
-    def set_callback(self, callback_name, on_timeout):
-        self.callbacks.append((callback_name, on_timeout))
-
-    def get_latest_callback(self, timeout=False):
-        if timeout:
-            return self.callbacks[-1][1]
-        else:
-            return self.callbacks[-1][0]
-
-    def create_decision(self, desc, *options):
-        self.user_decision = UserDecision(desc=desc, options=options)
-
-    def make_decision(self, decison, comment):
-        self.user_decision.make_decision(decison, comment)
-        self.next_task = self.callbacks[-1][0]
-
-    @staticmethod
-    def new_context(workflow):
-        return Context(wf=workflow.name)
-
-    @staticmethod
-    def from_ctx_id(ctx_id):
-        return Context.objects(id=ObjectId(ctx_id)).first()
-
-    @staticmethod
-    def get_asking_context():
-        """
-        :return: list of context that is asking user for decision
-        """
-        return Context.objects(state=WfStates.asking.state)
-
-
 class Workflow(object):
 
     EXCEP = 1
@@ -188,6 +65,12 @@ class Workflow(object):
         self._start_task = None
         self._req_params = None
         self._req_event = None
+
+    def log(self, msg, phase=None):
+        self._ctx.log(msg, phase=phase)
+
+    def sleep(self):
+        pass
 
     def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
         if to_state not in EventState.alls:
@@ -311,64 +194,3 @@ class Workflow(object):
 
     def __str__(self):
         return json.dumps(self._graph)
-
-
-class WorkflowBuilder(object):
-    def __init__(self, name, desc='', event_subscriptions=None):
-        """
-        :param name:
-        :param desc:
-        :param event_subscriptions:
-        """
-        self._wf = Workflow(name,  desc=desc)
-        if event_subscriptions is None:
-            event_subscriptions = []
-        self.event_subscriptions = event_subscriptions
-
-    def goto(self, next_task_name, reason=None):
-        return get_cur_wf().goto(next_task_name, reason)
-
-    def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
-        return get_cur_wf().wait(event, to_state, timeout_ms, goto=goto, on_timeout=on_timeout)
-
-    def ask(self, desc, options, goto):
-        return get_cur_wf().ask(desc, options, goto)
-
-    def get_decision(self):
-        return get_cur_wf().get_decision()
-
-    def get_property(self, name, namespace=''):
-        return wf.service_router.get_prop_mgr.get_property(name=name, namespace=namespace)
-
-    def task(self, task_name, entrance=False, **to):
-        return self._wf.task(task_name, entrance, **to)
-
-    def add_task(self, task_name, func, entrance=False, **to):
-        return self._wf.add_task(task_name, func, **to)
-
-    def end(self):
-        return get_cur_wf().end()
-
-    def __str__(self):
-        return str(self._wf)
-
-    def wf(self):
-        '''
-    TODO: this method is obselete, use build() instead
-    '''
-        return self._wf
-
-    def build(self):
-        """
-    TODO:
-        1. check building validation such as entrace must be called to set up the entrace task
-        2. after build is  called, changing to the wf is prevented
-    """
-        return self._wf
-
-    def get_subscription_keys(self):
-        return [
-            s.to_key() for s in self.event_subscriptions
-        ]
-
-from .executor import get_cur_wf, WfStates

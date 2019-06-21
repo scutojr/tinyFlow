@@ -6,7 +6,7 @@ from mongoengine import connect
 
 from wf.server.reactor.event import Event
 from wf.workflow import Workflow, Context, Parameter, ParamSource
-from wf.executor import WorkflowExecutor, context
+from wf.executor import WorkflowExecutor
 
 import tests.utils.db as db
 

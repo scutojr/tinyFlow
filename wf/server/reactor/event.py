@@ -78,7 +78,6 @@ class Event(me.Document):
         start_after and qry['start'].setdefault('$gt', start_after)
         tags and qry.setdefault('tags', tags)
 
-        print qry
         return Event.objects(__raw__=qry)
 
 
