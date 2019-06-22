@@ -1,11 +1,12 @@
 import React, { Component } from 'react';
 import { Link } from 'react-router-dom'
-import { Card, CardBody } from 'reactstrap';
+import { Card, CardBody, CardHeader, Row, Col, CardText } from 'reactstrap';
+import Axios from 'axios';
+import ReactTable from 'react-table'
+import 'react-table/react-table.css'
 
-import TableBuilder from './TableBuilder';
 
-
-let wfs = {
+let wfsForTest = {
   "sleepy_wf": {
     "description": "this is a sleepy workflow",
     "graph": {
@@ -34,27 +35,56 @@ let wfs = {
 
 
 class WorkflowList extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      data: [],
+      loading: true,
+      pageSize: 10
+    }
+    this.columns = [{
+      Header: "Workflow Name",
+      accessor: "name",
+      Cell: (props) => <Link to={this.props.match.path + "/" + props.value}>{props.value}</Link>
+    }, {
+      Header: "Description",
+      accessor: "description",
+    }];
+  }
+
+  componentDidMount = () => {
+    const path = '/tobot/workflows';
+    this.setState({
+      loading: true
+    })
+    Axios.get(path).then((res) => {
+      let rows = Object.values(res.data);
+      this.setState({
+        loading: false,
+        data: rows,
+        pageSize: rows.length
+      })
+    });
+  }
 
   render() {
-    let path = this.props.match.path;
-    let headers = ["Name", "Description"];
-    let datas = [];
-    for (let key in wfs) {
-      let wf = wfs[key];
-      datas.push([
-        <Link to={path + "/" + wf.name}>{wf.name}</Link>,
-        wf.description
-      ]);
-    }
-
     return (
       <div className="animated fadeIn">
         <Card>
+          <CardHeader>
+            Registered Workflow
+          </CardHeader>
           <CardBody>
-            <TableBuilder {...{ headers, datas }} />
+            <ReactTable
+              showPagination={false}
+              data={this.state.data}
+              pageSize={this.state.pageSize}
+              loading={this.state.loading}
+              columns={this.columns}
+            />
           </CardBody>
         </Card>
-      </div>
+      </div >
     )
   }
 }

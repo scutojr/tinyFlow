@@ -132,36 +132,43 @@ class WorkflowDiagram extends Component {
 	}
 
 	render() {
-    const workflowData = this.props.workflow;
+		const workflowData = this.props.workflow;
 		let engine = new DiagramEngine();
-		engine.installDefaultFactories();
-		let model = new DiagramModel();
 
-		let nodes = new Map();
-		let links = [];
+		if (workflowData) {
+			try {
+				engine.installDefaultFactories();
+				let model = new DiagramModel();
 
-		const graph = workflowData.graph;
-		for (let task in graph) {
-			let node = this.createNode(task);
-			nodes.set(task, node)
-		}
+				let nodes = new Map();
+				let links = [];
 
-		this.initializePos(workflowData.entrance, nodes, graph);
+				const graph = workflowData.graph;
+				for (let task in graph) {
+					let node = this.createNode(task);
+					nodes.set(task, node)
+				}
 
-		nodes.forEach((node, name) => {
-			for (let [state, nextTaskName] of Object.entries(graph[name])) {
-				links.push(
-					this.createLink(node, nodes.get(nextTaskName), state)
-				);
+				this.initializePos(workflowData.entrance, nodes, graph);
+
+				nodes.forEach((node, name) => {
+					for (let [state, nextTaskName] of Object.entries(graph[name])) {
+						links.push(
+							this.createLink(node, nodes.get(nextTaskName), state)
+						);
+					}
+				});
+
+				for (let node of nodes.values()) {
+					model.addNode(node);
+				}
+				links.forEach((link) => { model.addLink(link) });
+				// engine.setDiagramModel(this.getDistributedModel(engine, model));
+				engine.setDiagramModel(model);
+			} catch (e) {
+				// I do this to avoid the wrong format of the workflow. this is a walk around
 			}
-		});
-
-		for (let node of nodes.values()) {
-			model.addNode(node);
 		}
-		links.forEach((link) => { model.addLink(link) });
-		// engine.setDiagramModel(this.getDistributedModel(engine, model));
-		engine.setDiagramModel(model);
 
 		return (
 			<div className="srd-demo-workspace">
