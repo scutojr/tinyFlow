@@ -62,7 +62,7 @@ class Workflow(object):
         self._ctx = None # assign before the workflow is to running
         self._max_task_run = max_task_run
 
-        self._start_task = None
+        self._entrance = None
         self._req_params = None
         self._req_event = None
 
@@ -96,7 +96,7 @@ class Workflow(object):
         self._graph[task_name] = to
         self._tasks[task_name] = func
         if entrance:
-            self._start_task = task_name
+            self._entrance = task_name
         return func
 
     def parse_task_params(self, func):
@@ -133,7 +133,7 @@ class Workflow(object):
         if not ctx.next_task:
             # TODO: refact it because it goes wrong if we call set_ctx before adding
             # task to the workflow
-            ctx.next_task = self._start_task
+            ctx.next_task = self._entrance
         self._ctx = ctx
 
     def set_request(self, params=None, event=None):
@@ -189,8 +189,12 @@ class Workflow(object):
         return {
             'name': self.name,
             'description': self.desc,
-            'graph': self._graph
+            'graph': self._graph,
+            'entrance': self._entrance
         }
+
+    def validate(self):
+        assert self._entrance is not None, 'entrance of the workflow must be defined'
 
     def __str__(self):
         return json.dumps(self._graph)

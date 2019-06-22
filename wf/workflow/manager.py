@@ -1,4 +1,5 @@
 import os
+import logging
 from copy import deepcopy
 from collections import defaultdict
 from imp import find_module, load_module
@@ -8,6 +9,7 @@ from .builder import WorkflowBuilder
 
 class WorkflowManager(object):
     def __init__(self, pack_dir):
+        self.logger = logging.getLogger(WorkflowBuilder.__name__)
         self.pack_dir = pack_dir
         self._workflows = {}
         self._handlers = defaultdict(list)
@@ -29,9 +31,14 @@ class WorkflowManager(object):
                     wfb = getattr(module, attr)
                     if isinstance(wfb, WorkflowBuilder):
                         wf = wfb.wf()
-                        self._workflows[wf.name] = wf
-                        for key in wfb.get_subscription_keys():
-                            self._handlers[key].append(wf)
+                        try:
+                            wf.validate()
+                        except AssertionError as e:
+                            self.logger.exception('failed to validate ' + module.__file__)
+                        else:
+                            self._workflows[wf.name] = wf
+                            for key in wfb.get_subscription_keys():
+                                self._handlers[key].append(wf)
 
     def get_workflows(self):
         return self._workflows.values()

@@ -6,7 +6,7 @@ from wf.server.reactor import Event, UserDecision
 
 
 class Context(me.Document):
-    wf = me.StringField(default='')
+    wf = me.StringField(default='') # TODO: should i rename it to name so as to make naming more convergent
     props = me.DictField()
     msgs = me.ListField()
 
