@@ -1,4 +1,4 @@
-import json
+import bson.json_util as json
 
 from flask import request
 from flask.blueprints import Blueprint
@@ -28,6 +28,14 @@ def list_workflow():
     })
 
 
+@bp.route('/workflows/<name>', methods=['GET'])
+def get_workflow(name):
+    wf = wf_manager.get_workflow(name)
+    if wf:
+        wf = wf.get_metadata()
+    return json.dumps(wf)
+
+
 @bp.route('/reactor/workflows/<wf_name>', methods=['GET', 'POST'])
 def run_wf(wf_name=''):
     """
@@ -54,9 +62,20 @@ bp.add_url_rule(
 )
 
 
-@bp.route('/workflows/info/<wf_id>', methods=['GET'])
-def wf_info(wf_id):
+@bp.route('/workflows/execution/<wf_id>', methods=['GET'])
+def get_wf_execution_info(wf_id):
     return wf_executor.get_wf_state(wf_id).to_json()
+
+
+@bp.route('/workflows/execution', methods=['GET'])
+def get_executions():
+    """
+    :http param name: specify the workflow name
+    """
+    args = request.args
+    name = args.get('name', None)
+    ctxs = wf_executor.get_wf_history(name=name)
+    return json.dumps(ctxs.as_pymongo())
 
 
 @bp.route('/userDecisions/<ctx_id>', methods=['GET', 'POST'])

@@ -1,7 +1,7 @@
 from httplib import *
 
 
-def get(host, port, endpoint):
+def get(host, port, endpoint, **params):
     """
     :param host:
     :param port:
@@ -9,6 +9,11 @@ def get(host, port, endpoint):
     :return:  (status, reason, response message)
     """
     conn = HTTPConnection(host, port)
+    search = []
+    for k, v in params.iteritems():
+        search.append(str(k) + '=' + str(v))
+    if search:
+        endpoint += '?' + '&'.join(search)
     conn.request('GET', endpoint)
     resp = conn.getresponse()
     return resp.status, resp.reason, resp.read()

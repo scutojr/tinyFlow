@@ -12,8 +12,14 @@ HOST, PORT = 'localhost', 54321
 
 class TestAPI(unittest.TestCase):
 
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
     def _get_wf_state(self, wf_id):
-        endpoint = '/tobot/workflows/info/' + wf_id
+        endpoint = '/tobot/workflows/execution/' + wf_id
         status, reason, msg = http.get(HOST, PORT, endpoint)
         wf = json.loads(msg)
         return wf['state']
@@ -125,6 +131,18 @@ class TestAPI(unittest.TestCase):
         trigger_wfs()
         time.sleep(2)
         make_decision()
+
+    def test_get_wf_history(self):
+        endpoint = '/tobot/workflows/execution'
+        _, _, rsp = http.get(HOST, PORT, endpoint)
+        rsp = json.loads(rsp)
+        self.assertTrue(len(rsp) > 0)
+        name = rsp[0]['wf']
+
+        _, _, rsp = http.get(HOST, PORT, endpoint, **{'name': name})
+        rsp = json.loads(rsp)
+        for wf in rsp:
+            self.assertTrue(wf['wf'] == name)
 
 
     def test_exception(self):

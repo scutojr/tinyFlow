@@ -125,5 +125,22 @@ class WorkflowExecutor(object):
         ctxs = Context.objects(id=ObjectId(wf_ctx_id))
         return ctxs.first()
 
+    @staticmethod
+    def get_wf_history(name=None, with_log=False):
+        """
+        get execution history of the workflow
+
+        :param name: select workflow with this name
+        :return: iterator for Context instance
+        """
+        qry = {}
+        if name:
+            qry['name'] = name
+        cursor = Context.objects(__raw__=qry)
+
+        if with_log:
+            cursor = cursor.exclude('msgs')
+        return cursor
+
 
 context = ContextProxy()

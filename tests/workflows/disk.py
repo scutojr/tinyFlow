@@ -1,10 +1,15 @@
 from wf import context, WorkflowBuilder, EventSubcription
 
 
-wf = WorkflowBuilder('disk', event_subscriptions = [
+desc = '''
+this is a workflow for handling disk error automatically
+'''
+subscribe  = [
     EventSubcription('disk', 'warning'),
     EventSubcription('disk', 'critical')
-])
+]
+
+wf = WorkflowBuilder('disk', desc=desc, event_subscriptions = subscribe)
 
 
 @wf.task('task start', entrance=True, **{
