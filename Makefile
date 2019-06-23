@@ -24,6 +24,10 @@ test: .unit
 	    python $$dirUnit/$$module; \
 	done;
 
+.Phony: install
+install:
+	@pip install -r requirements.txt
+
 
 .PHONY: help
 help:
@@ -33,3 +37,4 @@ help:
 	@echo '    test'
 	@echo '    server_test'
 	@echo '    mongo_client'
+	@echo '    install'
