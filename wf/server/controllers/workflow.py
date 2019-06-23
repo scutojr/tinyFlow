@@ -5,6 +5,7 @@ from flask.blueprints import Blueprint
 
 from wf import service_router
 from wf.workflow import Context
+from wf.utils import now_ms
 from wf.server.reactor import Event, EventState
 
 
@@ -70,11 +71,27 @@ def get_wf_execution_info(wf_id):
 @bp.route('/workflows/execution', methods=['GET'])
 def get_executions():
     """
+    get list of workflow execution info, log info will not be returned
+
     :http param name: specify the workflow name
+    :http param limit: specify max number of execution info returned
+                       on each request
+    :http param startBefore: workflows start before this time in ms
+    :http param skip: number of element to skip, this is used for pagination
     """
     args = request.args
     name = args.get('name', None)
-    ctxs = wf_executor.get_wf_history(name=name)
+    limit = int(args.get('limit', 100))
+    startBefore = int(args.get('startBefore', now_ms()))
+    skip = int(args.get('skip', 0))
+
+    ctxs = (wf_executor
+            .get_wf_history(name=name, startBefore=startBefore)
+            .limit(limit)
+            .exclude('msgs')
+            .order_by('-start')
+            .skip(skip)
+           )
     return json.dumps(ctxs.as_pymongo())
 
 

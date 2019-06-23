@@ -32,7 +32,10 @@ def parse_opts(args):
 def _connect_db():
     def ensure_index():
         from wf.server.reactor.event import Event
+        from wf.workflow import Context
+
         Event.ensure_indexes()
+        Context.ensure_indexes()
     db = 'test'
     host, port = 'mongo_test_server', 27017
     connect(db, host=host, port=port)

@@ -126,7 +126,7 @@ class WorkflowExecutor(object):
         return ctxs.first()
 
     @staticmethod
-    def get_wf_history(name=None, with_log=False):
+    def get_wf_history(name=None, with_log=False, startBefore=None):
         """
         get execution history of the workflow
 
@@ -135,7 +135,9 @@ class WorkflowExecutor(object):
         """
         qry = {}
         if name:
-            qry['name'] = name
+            qry['wf'] = name
+        if startBefore is not None:
+            qry['start'] = {'$lte': startBefore}
         cursor = Context.objects(__raw__=qry)
 
         if with_log:

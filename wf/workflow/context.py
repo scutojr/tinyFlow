@@ -6,9 +6,10 @@ from wf.server.reactor import Event, UserDecision
 
 
 class Context(me.Document):
-    wf = me.StringField(default='') # TODO: should i rename it to name so as to make naming more convergent
+    wf = me.StringField(default='')
     props = me.DictField()
     msgs = me.ListField()
+    start = me.IntField()
 
     source_event = me.ReferenceField(Event)
     exec_history = me.ListField(me.StringField())
@@ -19,8 +20,11 @@ class Context(me.Document):
 
     user_decision = me.EmbeddedDocumentField(UserDecision)
 
-    def __init__(self, *args, **kwargs):
-        super(Context, self).__init__(*args, **kwargs)
+    meta = {
+        'indexes': [
+            'start',
+        ]
+    }
 
     def get_prop(self, key, default=None):
         return self.props.get(key, default)
@@ -58,8 +62,10 @@ class Context(me.Document):
         self.next_task = self.callbacks[-1][0]
 
     @staticmethod
-    def new_context(workflow):
-        return Context(wf=workflow.name)
+    def new_context(workflow, start_ms=None):
+        if not start_ms:
+            start_ms = now_ms()
+        return Context(wf=workflow.name, start=start_ms)
 
     @staticmethod
     def from_ctx_id(ctx_id):
