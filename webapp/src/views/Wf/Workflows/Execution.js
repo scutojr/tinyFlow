@@ -2,9 +2,14 @@ import React, { Component } from 'react';
 import {
   Card, CardBody,
   CardHeader,
-  Col, Row,
-  Nav, NavItem, NavLink
+  Col, Row, Form,
+  FormGroup, Label, Input, CustomInput
 } from 'reactstrap';
+
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+
+import RichTextEditor from 'react-rte';
 
 import WorkflowDiagram from './WorkflowDiagram';
 
@@ -24,6 +29,108 @@ const workflowData = {
 };
 
 
+class LogPannel extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      phases: {
+        all: true
+      }
+    }
+    this.phases = undefined;
+  }
+
+  getPhases = (logs) => {
+    if (this.phases != undefined) {
+      return this.phases;
+    }
+    let phases = new Set();
+    for (let [time, phase, msg] of logs) {
+      phases.add(phase);
+    }
+    this.phases = phases;
+    return phases;
+  }
+
+  buildLogContent = () => {
+    const logs = this.props.logs;
+    const lines = [];
+    const phases = this.state.phases;
+    const all = phases.all;
+    for (let [time, phase, msg] of logs) {
+      if (all || phases[phase]) {
+        lines.push(`${time} ${phase} ${msg}`)
+      }
+    }
+    console.log(lines);
+    return lines.join("\n");
+
+  }
+
+  render() {
+    const logs = this.props.logs;
+    let phases = new Array(...this.getPhases(logs));
+    for (let p of phases) {
+      if (this.state.phases[p] == undefined) {
+        this.state.phases[p] = false;
+      }
+    }
+    phases.splice(0, 0, "all");
+    const content = this.buildLogContent();
+
+    return (
+      <>
+        <FormGroup>
+          <div>
+            {
+              phases.map((phase, i) => {
+                return (
+                  <CustomInput
+                    id={phase} key={phase} inline
+                    type="checkbox" label={phase}
+                    checked={this.state.phases[phase]}
+                    onChange={(e) => {
+                      if (phase == "all") {
+                        for (let key in this.state.phases) {
+                          this.state.phases[key] = false;
+                        }
+                        this.state.phases["all"] = true;
+                      } else {
+                        this.state.phases[phase] = e.target.checked;
+                        this.state.phases["all"] = false;
+                      }
+                      this.setState({});
+                    }}
+                  />
+                )
+              })
+            }
+          </div>
+        </FormGroup>
+        <div
+          style={{
+            height: "500px",
+            overflow: "auto",
+            "margin-top": "20px"
+          }}
+        >
+          <Card>
+            <textarea
+              style={{
+                width: "100%",
+                height: "470px"
+              }}
+              value={content}
+              spellCheck={false}
+            />
+          </Card>
+        </div>
+      </>
+    )
+  }
+}
+
+
 class Execution extends Component {
 
   render() {
@@ -36,10 +143,10 @@ class Execution extends Component {
                 <Card>
                   <CardHeader>
                     Workflow introduction for {this.props.match.wfId}
-			            </CardHeader>
+                  </CardHeader>
                   <CardBody className="pb-0">
                     describe this workflow. Should we show the code on the browser?
-  		            </CardBody>
+                  </CardBody>
                 </Card>
               </Col>
 
@@ -47,10 +154,10 @@ class Execution extends Component {
                 <Card>
                   <CardHeader>
                     Event Listening
-			            </CardHeader>
+                  </CardHeader>
                   <CardBody className="pb-0">
                     all the event this workflow is interested in.
-  		            </CardBody>
+                  </CardBody>
                 </Card>
               </Col>
 
@@ -58,8 +165,8 @@ class Execution extends Component {
                 <Card>
                   <CardHeader>
                     Workflow Diagram
-   			         </CardHeader>
-                  <CardBody className="pb-0" style={{ "backgroundColor": "#8f9ba6" }}>
+                  </CardHeader>
+                  <CardBody className="pb-0" style={{ "backgroundColor": "#8f9ba6", height: "400px" }}>
                     <WorkflowDiagram workflow={workflowData} />
                   </CardBody>
                 </Card>
@@ -87,24 +194,14 @@ class Execution extends Component {
               </CardHeader>
               <CardBody className="pb-0">
 
-                <Nav tabs>
-                  <NavItem>
-                    <NavLink href="#" active>All</NavLink>
-                  </NavItem>
-                  <NavItem>
-                    <NavLink href="#">task 1</NavLink>
-                  </NavItem>
-                  <NavItem>
-                    <NavLink href="#">task 2</NavLink>
-                  </NavItem>
-                  <NavItem>
-                    <NavLink disabled href="#">task 3</NavLink>
-                  </NavItem>
-                  <NavItem>
-                    <NavLink disabled href="#">user action</NavLink>
-                  </NavItem>
-                </Nav>
-
+                <LogPannel logs={[
+                  [123, "p1", "fake data"],
+                  [123, "p1", "fake data"],
+                  [123, "p2", "fake data"],
+                  [123, "p3", "fake data"],
+                  [123, "p2", "fake data"],
+                  [123, "p1", "fake data"]
+                ]} />
               </CardBody>
             </Card>
           </Col>

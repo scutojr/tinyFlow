@@ -220,7 +220,7 @@ class ReactTableDemo extends Component {
           page: 0,
           data: [] // clear the history immediately
         })
-        const url = this._buildQueryURL({query: location.search});
+        const url = this._buildQueryURL({ query: location.search });
         this.fetchEventData(url);
       });
     }
@@ -251,7 +251,12 @@ class ReactTableDemo extends Component {
     }, {
       Header: "Happened At",
       accessor: "start",
-      Cell: (props) => new Date(props.value).toString()
+      Cell: (props) => {
+        let d = new Date(props.value);
+        return `${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}/
+                ${d.getMonth() + 1}.${d.getDate()}/
+                ${d.getFullYear()}`;
+      }
     }
     ];
     // this.generateData();
