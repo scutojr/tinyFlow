@@ -16,6 +16,9 @@ class TestWorkFlow(unittest.TestCase):
     def setUp(self):
         db.connect()
 
+    def tearDown(self):
+        db.disconnect()
+
     def test_wf_builder(self):
         print '===== test wf builder ====='
         wf = WorkflowBuilder.from_builder()
@@ -87,6 +90,20 @@ class TestWorkFlow(unittest.TestCase):
             print 'xxxxx =============='
             print 'xxxx:', executor.execute(wf)
             print 'xxxxx =============='
+
+    def test_set_get_prop(self):
+        wf = WorkflowBuilder.from_builder()
+        props = {
+            'p1': 'v1',
+            'p2': 'v2',
+            'p3': 'v3',
+            'p4': 'v4'
+        }
+        for k, v in props.iteritems():
+            wf.set_prop(k, v)
+        for k in props:
+            v = wf.get_prop(k)
+            self.assertTrue(v == props[k])
 
 
 class WorkflowBuilder():

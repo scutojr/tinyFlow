@@ -163,6 +163,12 @@ class Workflow(object):
     def get_decision(self):
         return self._ctx.user_decision.decision
 
+    def get_prop(self, key, default=None):
+        return self._ctx.get_prop(key, default=default)
+
+    def set_prop(self, key, value):
+        self._ctx.set_prop(key, value)
+
     def execute(self):
         flag, count = -1, 0
         ctx = self._ctx

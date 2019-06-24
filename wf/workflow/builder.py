@@ -40,6 +40,12 @@ class WorkflowBuilder(object):
     def get_property(self, name, namespace=''):
         return wf.service_router.get_prop_mgr.get_property(name=name, namespace=namespace)
 
+    def get_prop(self, key, default=None):
+        return get_cur_wf().get_prop(key, default)
+
+    def set_prop(self, key, value):
+        get_cur_wf().set_prop(key, value)
+
     def task(self, task_name, entrance=False, **to):
         return self._wf.task(task_name, entrance, **to)
 
