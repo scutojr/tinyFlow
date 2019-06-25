@@ -1,7 +1,7 @@
 from random import randint
 
 from wf.server.reactor import EventState
-from wf import context, WorkflowBuilder, EventSubcription
+from wf import WorkflowBuilder, EventSubcription
 
 
 event_name = 'stop_service'
@@ -28,5 +28,5 @@ def receive_service_stop_alert():
 
 @wf.task('handle_user_decision')
 def handle_user_decision():
-    context.log('user decison is ' + wf.get_decision())
+    wf.log('user decison is ' + wf.get_decision())
     wf.end()

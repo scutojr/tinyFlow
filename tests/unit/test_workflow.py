@@ -6,7 +6,7 @@ from mongoengine import connect
 
 from wf.server.reactor.event import Event
 from wf.workflow import Workflow, Context, Parameter, ParamSource
-from wf.executor import WorkflowExecutor
+from wf.executor import SimpleExecutor, MultiThreadExecutor
 
 import tests.utils.db as db
 
@@ -84,12 +84,13 @@ class TestWorkFlow(unittest.TestCase):
 
     def test_executor(self):
         print '===== test wf executor ====='
-        executor = WorkflowExecutor(20)
+        simple_executor = SimpleExecutor()
+        multi_thread_exct = MultiThreadExecutor()
+
         for i in range(2):
             wf = WorkflowBuilder.from_builder()
-            print 'xxxxx =============='
-            print 'xxxx:', executor.execute(wf)
-            print 'xxxxx =============='
+            for exct in [simple_executor, multi_thread_exct]:
+                exct.execute(wf)
 
     def test_set_get_prop(self):
         wf = WorkflowBuilder.from_builder()

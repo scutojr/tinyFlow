@@ -3,7 +3,7 @@ from random import randint
 # TODO: organize the EventState to a proper package
 # TODO: so that the client lib know as little detail of server code as possible
 from wf.server.reactor import EventState
-from wf import context, WorkflowBuilder, EventSubcription
+from wf import WorkflowBuilder, EventSubcription
 
 
 event_name = 'server_down'
@@ -24,11 +24,11 @@ def handle_server_down():
     # pudb.set_trace()
     maintainant = False
     if maintainant:
-        context.log('server is already under maintainance mode')
+        wf.log('server is already under maintainance mode')
         wf.end()
         return
-    context.log('receiving server down. wait %s ms for its recovery.' % WAIT_MS)
-    event = context.source_event
+    wf.log('receiving server down. wait %s ms for its recovery.' % WAIT_MS)
+    event = wf.source_event
     # TODO: implement "goto" of wait method
     # TODO: implement "on_timeout" of wait method
     wf.wait(
@@ -40,13 +40,13 @@ def handle_server_down():
 
 @wf.task('reboot_succeed')
 def reboot_succeed():
-    context.log('check rebbot reason: ' + 'kernel panic')
+    wf.log('check rebbot reason: ' + 'kernel panic')
     wf.goto('check_server_health', 'check server health after server reboot.')
 
 
 @wf.task('check_server_health')
 def check_server_health():
-    context.log('the server is healthy')
+    wf.log('the server is healthy')
     num = randint(1, 2)
     if num == 1:
         wf.goto('start_all_service', 'server is healthy')
@@ -56,13 +56,13 @@ def check_server_health():
 
 @wf.task('start_all_service')
 def start_all_service():
-    context.log('start: dn, nn, regionServer')
+    wf.log('start: dn, nn, regionServer')
     wf.end()
 
 
 @wf.task('repair_the_server')
 def repair_the_server():
-    context.log('trigger repair workflow')
+    wf.log('trigger repair workflow')
     wf.end()
 
 
@@ -72,8 +72,8 @@ def reboot_failed():
     if key_node:
         wf.goto('notify_admin')
         return
-    context.log()
-    event = context.source_event
+    wf.log()
+    event = wf.source_event
     wf.wait(
         event, EventState.INFO, WAIT_MS,
         goto='reboot_succeed',
@@ -85,6 +85,6 @@ def reboot_failed():
 def notify_admin():
     num = randint(1, 2)
     if num == 1:
-        context.log('notify instantly')
+        wf.log('notify instantly')
     else:
-        context.log('notify _at_work_hour')
+        wf.log('notify _at_work_hour')

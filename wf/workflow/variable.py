@@ -1,3 +1,6 @@
+from ..executor import workflow
+
+
 class Scope(object):
     local = 'local'
     workflow = 'workflow'
@@ -12,12 +15,10 @@ class Variable(object):
         self.value = None
 
     def get(self, default=None):
-        wf = get_cur_wf()
-        return wf.get_prop(self.name, default=default)
+        return workflow.get_prop(self.name, default=default)
 
     def set(self, value):
-        wf = get_cur_wf()
-        wf.set_prop(self.name, value)
+        workflow.set_prop(self.name, value)
 
     def to_json():
         return {
@@ -27,5 +28,3 @@ class Variable(object):
             'value': self.value
         }
 
-
-from wf.executor import get_cur_wf

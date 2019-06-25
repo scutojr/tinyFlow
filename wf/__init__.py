@@ -1,16 +1,11 @@
 from .workflow import WorkflowBuilder, EventSubcription
-from .executor import ContextProxy
 
 
 __all__ = [
-    'context',
     'service_router',
     'WorkflowBuilder',
     'EventSubcription'
 ]
-
-
-context = ContextProxy()
 
 
 class ServiceRouter(object):

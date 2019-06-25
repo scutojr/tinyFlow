@@ -1,9 +1,14 @@
-from wf.workflow import context, WorkflowBuilder, EventSubcription, Variable
+from wf.workflow import (
+    Variable,
+    WorkflowBuilder,
+    EventSubcription
+)
 
 
 desc = '''
 this is a workflow for handling disk error automatically
 '''
+
 subscribe  = [
     EventSubcription('disk', 'warning'),
     EventSubcription('disk', 'critical')
@@ -26,16 +31,16 @@ wf = WorkflowBuilder('disk', desc=desc, event_subscriptions = subscribe)
 def start():
     msg = 'I am task start. Go to task b.'
     v1.set('yes')
-    context.log(msg)
+    wf.log(msg)
     wf.goto('task b')
 
 
 @wf.task('task b')
 def b():
     msg = 'I am b. Go to task end.'
-    context.set_prop('task b', 'yes')
+    wf.set_prop('task b', 'yes')
     v2.set('yes')
-    context.log(msg)
+    wf.log(msg)
     wf.goto('task end')
 
 
@@ -43,7 +48,7 @@ def b():
 def c():
     msg = 'I am c. Go to task end.'
     v3.set('yes')
-    context.log(msg)
+    wf.log(msg)
     wf.goto('task end')
 
 
@@ -52,5 +57,5 @@ def end():
     msg = 'This is end task'
     print 'show wf topology:', str(wf)
     v4.set('yes')
-    context.log(msg)
+    wf.log(msg)
     wf.end()

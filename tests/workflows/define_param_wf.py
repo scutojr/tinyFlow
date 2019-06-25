@@ -1,4 +1,4 @@
-from wf import context, WorkflowBuilder, EventSubcription
+from wf import WorkflowBuilder, EventSubcription
 from wf.workflow import Parameter, ParamSource
 
 

@@ -2,7 +2,7 @@ import wf
 from .workflow import Workflow
 
 
-get_cur_wf = None
+workflow = None
 
 
 class WorkflowBuilder(object):
@@ -12,10 +12,10 @@ class WorkflowBuilder(object):
         :param desc:
         :param event_subscriptions:
         """
-        from wf.executor import get_cur_wf
-        global get_cur_wf
+        from ..executor import workflow as wf
+        global workflow
 
-        get_cur_wf = get_cur_wf
+        workflow = wf
 
         self._wf = Workflow(name,  desc=desc)
         if event_subscriptions is None:
@@ -23,28 +23,28 @@ class WorkflowBuilder(object):
         self.event_subscriptions = event_subscriptions
 
     def log(self, msg):
-        return get_cur_wf().log(msg)
+        return workflow.log(msg)
 
     def goto(self, next_task_name, reason=None):
-        return get_cur_wf().goto(next_task_name, reason)
+        return workflow.goto(next_task_name, reason)
 
     def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
-        return get_cur_wf().wait(event, to_state, timeout_ms, goto=goto, on_timeout=on_timeout)
+        return workflow.wait(event, to_state, timeout_ms, goto=goto, on_timeout=on_timeout)
 
     def ask(self, desc, options, goto):
-        return get_cur_wf().ask(desc, options, goto)
+        return workflow.ask(desc, options, goto)
 
     def get_decision(self):
-        return get_cur_wf().get_decision()
+        return workflow.get_decision()
 
     def get_property(self, name, namespace=''):
         return wf.service_router.get_prop_mgr.get_property(name=name, namespace=namespace)
 
     def get_prop(self, key, default=None):
-        return get_cur_wf().get_prop(key, default)
+        return workflow.get_prop(key, default)
 
     def set_prop(self, key, value):
-        get_cur_wf().set_prop(key, value)
+        workflow.set_prop(key, value)
 
     def task(self, task_name, entrance=False, **to):
         return self._wf.task(task_name, entrance, **to)
@@ -53,7 +53,7 @@ class WorkflowBuilder(object):
         return self._wf.add_task(task_name, func, **to)
 
     def end(self):
-        return get_cur_wf().end()
+        return workflow.end()
 
     def __str__(self):
         return str(self._wf)
