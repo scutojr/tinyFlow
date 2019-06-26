@@ -1,7 +1,7 @@
 from .builder import WorkflowBuilder
 from .context import Context
 from .manager import WorkflowManager
-from .variable import Variable
+from .variable import Variable, Scope
 from .workflow import (
     Workflow,
     ParamSource,
@@ -20,5 +20,6 @@ __all__ = [
     'Parameter',
     'Package',
     'EventSubcription',
-    'Variable'
+    'Variable',
+    'Scope'
 ]

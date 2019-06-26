@@ -117,7 +117,7 @@ class PropertyManager(object):
     def __init__(self):
         self.lock = RLock()
         self.logger = logging.getLogger(PropertyManager.__name__)
-        self.prop_pool = PropertyPool.new()
+        self._load_prop_pool()
 
     def get_property(self, name='', namespace=''):
         """
@@ -190,7 +190,9 @@ class PropertyManager(object):
                 self._load_prop_pool()
             namespace = namespace or self._default_ns
 
-            prop = self.prop_pool.properties[namespace][name].copy()
+            prop = self.get_property(name=name, namespace=namespace)
+            if prop is None:
+                prop = Property(name=name)
 
             value is not None and setattr(prop, 'value', value)
             description is not None and setattr(prop, 'description', description)
@@ -213,7 +215,5 @@ class PropertyManager(object):
                 raise Exception('failed to update property: %s.%s' % (name, namespace))
 
     def get_value(self, name, default='', namespace=''):
-        with self.lock:
-            if self.prop_pool is None:
-                self._load_prop_pool()
-            return self.prop_pool.properties[namespace].get(name, default)
+        prop = self.get_property(name, namespace)
+        return prop and prop.value or default

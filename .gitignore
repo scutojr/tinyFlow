@@ -1,6 +1,7 @@
 *.pyc
 *.swo
 *.swp
+*.swn
 .idea
 
 /webapp/node_modules

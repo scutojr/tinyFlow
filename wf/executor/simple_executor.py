@@ -37,16 +37,13 @@ class SimpleExecutor(object):
         ctx.save()
         return workflow, ctx
 
-    def execute(self, workflow, event=None, ctx=None):
+    def execute(self, workflow):
         """
         :param event:
         :param workflow:
         :return:  (workflow, context)
         """
-        if not ctx:
-            ctx = Context.new_context(workflow)
-            ctx.source_event = event
-        return self._run(workflow, ctx)
+        return self._run(workflow, workflow.get_ctx())
 
     @staticmethod
     def get_wf_state(wf_ctx_id):

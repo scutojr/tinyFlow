@@ -1,10 +1,18 @@
 from ..executor import workflow
 
+import wf
+
+
+NS_WF = 'built-in:wf'
+NS_OVERALL = 'built-in:overall'
+
 
 class Scope(object):
     local = 'local'
     workflow = 'workflow'
     overall = 'overall'
+
+    alls = [local, workflow, overall]
 
 
 class Variable(object):
@@ -13,12 +21,33 @@ class Variable(object):
         self.desc = desc
         self.scope = scope
         self.value = None
+        self._router = wf.service_router
+
+        assert scope in Scope.alls, 'scope must be one of: ' + Scope.alls
 
     def get(self, default=None):
-        return workflow.get_prop(self.name, default=default)
+        s = self.scope
+        name = self.name
+        if s == Scope.local:
+            return workflow.get_prop(name, default=default)
+        elif s == Scope.workflow:
+            ns = NS_WF
+            name = workflow.name + ':' + name
+        else:
+            ns = NS_OVERALL
+        return self._router.get_prop_mgr().get_value(name=name, namespace=ns) or default
 
     def set(self, value):
-        workflow.set_prop(self.name, value)
+        s = self.scope
+        name = self.name
+        if s == Scope.local:
+            return workflow.set_prop(name, value)
+        elif s == Scope.workflow:
+            ns = NS_WF
+            name = workflow.name + ':' + name
+        else:
+            ns = NS_OVERALL
+        return self._router.get_prop_mgr().update_property(name=name, namespace=ns, value=value)
 
     def to_json():
         return {

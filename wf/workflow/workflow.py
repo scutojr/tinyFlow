@@ -1,8 +1,10 @@
 import json
+from copy import deepcopy
 from functools import partial
 from traceback import format_exc
 
 import wf
+from .context import Context
 from wf.server.reactor import Event, EventState, UserDecision
 
 
@@ -65,6 +67,17 @@ class Workflow(object):
         self._entrance = None
         self._req_params = None
         self._req_event = None
+
+    def instance(self, ctx=None, oid=None):
+        # TODO: what happen if ctx is not found with this oid
+        wf = deepcopy(self)
+        if ctx is None:
+            if oid:
+                ctx = Context.from_ctx_id(oid)
+            else:
+                ctx = Context.new_context(wf)
+        wf.set_ctx(ctx)
+        return wf
 
     def log(self, msg, phase=None):
         self._ctx.log(msg, phase=phase)
@@ -135,6 +148,9 @@ class Workflow(object):
             # task to the workflow
             ctx.next_task = self._entrance
         self._ctx = ctx
+
+    def get_ctx(self):
+        return self._ctx
 
     def set_request(self, params=None, event=None):
         self._req_params = params
