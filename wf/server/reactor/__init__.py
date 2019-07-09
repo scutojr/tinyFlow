@@ -1,10 +1,12 @@
-from .event import Event, EventState, UserDecision
+from .event import Event, EventState
 from .manager import EventManager
+from .trigger import Trigger, BasedTrigger
 
 
 __all__ = [
     'Event',
     'EventState',
     'EventManager',
-    'UserDecision'
+    'Trigger',
+    'BasedTrigger'
 ]
