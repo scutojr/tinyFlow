@@ -42,7 +42,7 @@ const states = {
 }
 
 
-function StateLable(state) {
+function StateLabel(state) {
   let label = states[state];
   if (label == undefined) {
     label = states.unknown
@@ -51,4 +51,4 @@ function StateLable(state) {
 }
 
 
-export default StateLable;
+export default StateLabel;

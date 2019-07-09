@@ -5,23 +5,7 @@ import ReactTable from 'react-table'
 
 import 'react-table/react-table.css'
 
-import WorkflowDiagram from './WorkflowDiagram';
-import StateLabel from './StateLabel';
-
-
-const workflowData = {
-  "description": "this is a description of a workflow",
-  "entrance": "task start",
-  "graph": {
-    "sleepy task": { "succeed": "task end" },
-    "task end": {},
-    "task start": {
-      "fail": "task end",
-      "succeed": "sleepy task"
-    }
-  },
-  "name": "sleepy_wf"
-};
+import { StateLabel, WorkflowDiagram } from '../Common';
 
 
 class ExecutionHistory extends Component {
@@ -53,10 +37,9 @@ class ExecutionHistory extends Component {
 
   componentDidMount = () => {
     this.setState({ loading: true })
-    const url = "/tobot/workflows/execution?name=" + this.wfName;
+    const url = "/tobot/executions?name=" + this.wfName;
     Axios.get(url).then((res) => {
       const executions = res.data;
-      console.log(executions);
       executions.forEach((element) => {
         if (element.start == undefined) {
           element.start = Date.now();
@@ -112,7 +95,6 @@ class Workflow extends Component {
   }
 
   render() {
-    console.log(this.props);
     const wf = this.state.workflowInfo;
     const name = this.props.match.params.name;
     return (

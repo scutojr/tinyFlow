@@ -1,10 +1,10 @@
 import React, { Component } from 'react';
 import { Link } from 'react-router-dom'
-import {Card, CardBody, CardHeader } from 'reactstrap';
+import { Card, CardBody, CardHeader } from 'reactstrap';
 import ReactTable from 'react-table'
 import Axios from 'axios';
 
-import StateLable from './StateLabel';
+import { StateLabel } from '../Common';
 
 import 'react-table/react-table.css'
 
@@ -39,7 +39,7 @@ class Executions extends Component {
       {
         Header: "Start",
         accessor: "start",
-        Cell: ({value}) => {
+        Cell: ({ value }) => {
           let d = new Date(value);
           return `${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}/${d.getMonth() + 1}.${d.getDate()}/${d.getFullYear()}`;
         }
@@ -47,7 +47,7 @@ class Executions extends Component {
       {
         Header: "Workflow Name",
         accessor: "wf",
-        Cell: ({value, row}) => {
+        Cell: ({ value, row }) => {
           if (!value) {
             value = "NAME NOT DEFINED"
           }
@@ -57,7 +57,7 @@ class Executions extends Component {
       {
         Header: "State",
         accessor: "state",
-        Cell: (({value}) => StateLable(value).label)
+        Cell: (({ value }) => StateLabel(value).label)
       },
       {
         Header: "Trigger By",
@@ -112,18 +112,16 @@ class Executions extends Component {
             showPaginationBottom={true}
 
             onFetchData={(state, instance) => {
-              console.log(state.page)
               let skip = state.page * state.pageSize;
               this.setState({ loading: true });
 
-              const url = "/tobot/workflows/execution";
+              const url = "/tobot/executions";
               const params = {
                 skip: skip,
                 startBefore: this.state.startBefore,
                 limit: this.state.pageSize
               }
               Axios.get(url, { params }).then((res) => {
-                console.log("res: ", res);
                 this.setState({
                   loading: false,
                   data: res.data,

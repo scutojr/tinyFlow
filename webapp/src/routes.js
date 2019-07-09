@@ -7,7 +7,7 @@ const WfStatCoverage = React.lazy(() => import('./views/Wf/Dashboard/Statistic/C
 const Events = React.lazy(() => import('./views/Wf/Events'))
 const Properties = React.lazy(() => import('./views/Wf/Properties'))
 const Executions = React.lazy(() => import('./views/Wf/Workflows/Executions'))
-const Execution = React.lazy(() => import('./views/Wf/Workflows/Execution'))
+const ExecutionPage = React.lazy(() => import('./views/Wf/Workflows/ExecutionPage'))
 const WorkflowList = React.lazy(() => import('./views/Wf/Workflows/WorkflowList'))
 const Workflow = React.lazy(() => import('./views/Wf/Workflows/Workflow'))
 
@@ -19,7 +19,7 @@ const routes = [
   { path: '/wf/events', exact: true, name: 'wfEvents', component: Events },
   { path: '/wf/properties', exact: true, name: 'wfProperties', component: Properties },
   { path: '/wf/executions', exact: true, name: 'wfExecutions', component: Executions },
-  { path: '/wf/executions/:wfId', exact: true, name: 'Workflow Execution Info', component: Execution },
+  { path: '/wf/executions/:wfId', exact: true, name: 'Workflow Execution Info', component: ExecutionPage },
   { path: '/wf/workflows', exact: true, name: 'wfWorkflows', component: WorkflowList },
   { path: '/wf/workflows/:name', exact: true, name: 'Workflow Info', component: Workflow }
 ];
