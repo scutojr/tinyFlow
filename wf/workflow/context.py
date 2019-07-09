@@ -2,7 +2,8 @@ import mongoengine as me
 from bson.objectid import ObjectId
 
 from wf.utils import now_ms
-from wf.server.reactor import Event, UserDecision
+from wf.server.reactor import Event, BasedTrigger
+from .decision import UserDecision
 
 
 class Context(me.Document):
@@ -19,6 +20,8 @@ class Context(me.Document):
     callbacks = me.ListField()
 
     user_decision = me.EmbeddedDocumentField(UserDecision)
+
+    trigger = me.EmbeddedDocumentField(BasedTrigger)
 
     meta = {
         'indexes': [
@@ -76,6 +79,7 @@ class Context(me.Document):
         """
         :return: list of context that is asking user for decision
         """
+        from wf.executor import WfStates
         return Context.objects(state=WfStates.asking.state)
 
     @staticmethod

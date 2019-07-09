@@ -5,13 +5,25 @@ from traceback import format_exc
 
 import wf
 from .context import Context
-from wf.server.reactor import Event, EventState, UserDecision
+from wf.server.reactor import EventState
 
 
 __all__ = [
     'Workflow',
     'Context'
 ]
+
+'''
+Workflow Feature
+    trigger:
+        1. event driven
+        2. user interactive
+    feature
+        1. event listening with timeout
+        2. sleep with timeout
+        3. user decision
+        4. workflow diagram for better visualization
+'''
 
 
 class ParamSource(object):
@@ -43,6 +55,12 @@ class EventSubcription(object):
     def to_key(self):
         return self.name, self.state
 
+    def to_json(self):
+        return {
+            'name': self.name,
+            'state': self.state
+        }
+
     @staticmethod
     def key_from_event(event):
         return event.name, event.state
@@ -65,15 +83,15 @@ class Workflow(object):
         self._max_task_run = max_task_run
 
         self._entrance = None
-        self._req_params = None
+        self._req_params = {}
         self._req_event = None
 
-    def instance(self, ctx=None, oid=None):
-        # TODO: what happen if ctx is not found with this oid
+    def instance(self, ctx=None, ctx_id=None):
+        # TODO: what happen if ctx is not found with this ctx_id
         wf = deepcopy(self)
         if ctx is None:
-            if oid:
-                ctx = Context.from_ctx_id(oid)
+            if ctx_id:
+                ctx = Context.from_ctx_id(ctx_id)
             else:
                 ctx = Context.new_context(wf)
         wf.set_ctx(ctx)
@@ -88,7 +106,7 @@ class Workflow(object):
     def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
         if to_state not in EventState.alls:
             raise Exception('to_state must be in the list of: ' + ','.join(EventState.alls))
-        self._ctx.callbacks.append((goto, on_timeout))
+        self._ctx.set_callback(goto, on_timeout)
         event_manager = wf.service_router.get_event_manager()
         event_manager.add_hook_for_event(event, self.get_id(), to_state, timeout_ms)
         self._waited = True
@@ -123,10 +141,11 @@ class Workflow(object):
         defs = func.func_defaults
         if defs is None:
             return inputs
-        params, event = self.get_request()
+        trg = self.get_trigger()
+        params, event = trg.params, trg.event
         for param_def in defs:
             name, default, source = param_def.name, param_def.default, param_def.source
-            if source == ParamSource.user:
+            if source == ParamSource.user and params:
                 inputs.append(params.get(name, default))
             elif event is not None:
                 if source == ParamSource.event_param:
@@ -152,16 +171,6 @@ class Workflow(object):
     def get_ctx(self):
         return self._ctx
 
-    def set_request(self, params=None, event=None):
-        self._req_params = params
-        self._req_event = event
-
-    def get_request(self):
-        """
-        :return: (dict, event)
-        """
-        return self._req_params, self._req_event
-
     def next_task(self):
         while not self._ending:
             next_task = self._ctx.next_task
@@ -176,6 +185,9 @@ class Workflow(object):
     def is_asking(self):
         return self._asking
 
+    def make_decision(self, decision, comment):
+        self._ctx.make_decision(decision, comment)
+
     def get_decision(self):
         return self._ctx.user_decision.decision
 
@@ -185,7 +197,12 @@ class Workflow(object):
     def set_prop(self, key, value):
         self._ctx.set_prop(key, value)
 
-    def execute(self):
+    def before_resume(self):
+        self._ctx.next_task = self._ctx.get_latest_callback()
+
+    def execute(self, trigger):
+        self.before_execute(trigger)
+
         flag, count = -1, 0
         ctx = self._ctx
         for task_name, task_func in self.next_task():
@@ -203,6 +220,8 @@ class Workflow(object):
                 ctx.log('end due to max number of task run exceeded: ' + self._max_task_run)
                 self.end()
             ctx.exec_history.append(task_name)
+            print self.get_trigger()
+            print self.get_trigger().to_json()
             ctx.save()
         if flag != -1:
             raise Exception(msg)
@@ -214,6 +233,30 @@ class Workflow(object):
             'graph': self._graph,
             'entrance': self._entrance
         }
+
+    def before_execute(self, trigger):
+        self._update_trigger(trigger)
+        print trigger
+        print self._ctx.trigger
+
+    def _update_trigger(self, trigger):
+        tri = self._ctx.trigger
+        if tri:
+            tri.update(trigger)
+        else:
+            self._ctx.trigger = trigger
+
+    def get_trigger(self):
+        return self._ctx.trigger
+
+    def set_state(self, state):
+        self._ctx.state = state
+
+    def get_id(self):
+        return self._ctx.id
+
+    def save(self):
+        self._ctx.save()
 
     def validate(self):
         assert self._entrance is not None, 'entrance of the workflow must be defined'

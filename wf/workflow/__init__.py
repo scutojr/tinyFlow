@@ -1,7 +1,5 @@
-from .builder import WorkflowBuilder
 from .context import Context
 from .manager import WorkflowManager
-from .variable import Variable, Scope
 from .workflow import (
     Workflow,
     ParamSource,
@@ -9,7 +7,8 @@ from .workflow import (
     Package,
     EventSubcription
 )
-
+from .builder import WorkflowBuilder
+from .variable import Variable, Scope
 
 __all__ = [
     'Context',

@@ -19,8 +19,12 @@ class WorkflowBuilder(object):
 
         self._wf = Workflow(name,  desc=desc)
         if event_subscriptions is None:
-            event_subscriptions = []
-        self.event_subscriptions = event_subscriptions
+            _subscriptions = []
+        self._subscriptions = event_subscriptions
+
+    @property
+    def name(self):
+        return self._wf.name
 
     def log(self, msg):
         return workflow.log(msg)
@@ -55,25 +59,20 @@ class WorkflowBuilder(object):
     def end(self):
         return workflow.end()
 
+    @property
+    def trigger(self):
+        return workflow.get_trigger()
+
     def __str__(self):
         return str(self._wf)
 
-    def wf(self):
-        '''
-    TODO: this method is obselete, use build() instead
-    '''
-        return self._wf
-
     def build(self):
         """
-    TODO:
-        1. check building validation such as entrace must be called to set up the entrace task
-        2. after build is  called, changing to the wf is prevented
-    """
+        TODO:
+            1. check building validation such as entrace must be called to set up the entrace task
+            2. after build is  called, changing to the wf is prevented
+        """
         return self._wf
 
-    def get_subscription_keys(self):
-        return [
-            s.to_key() for s in self.event_subscriptions
-        ]
-
+    def get_subscriptions(self):
+        return self._subscriptions

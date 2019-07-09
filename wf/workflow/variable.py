@@ -20,12 +20,11 @@ class Variable(object):
         self.name = name
         self.desc = desc
         self.scope = scope
-        self.value = None
         self._router = wf.service_router
 
         assert scope in Scope.alls, 'scope must be one of: ' + Scope.alls
 
-    def get(self, default=None):
+    def get(self, default=None, workflow=workflow):
         s = self.scope
         name = self.name
         if s == Scope.local:
@@ -54,6 +53,5 @@ class Variable(object):
             'name': self.name,
             'desc': self.desc,
             'scope': self.scope,
-            'value': self.value
         }
 
