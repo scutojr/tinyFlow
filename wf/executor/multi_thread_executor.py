@@ -6,7 +6,8 @@ from multiprocessing.dummy import Pool
 from bson.objectid import ObjectId
 
 from .state import WfStates, State
-from wf.workflow import Context
+
+from ..workflow import Context
 from .simple_executor import SimpleExecutor
 
 
@@ -30,29 +31,21 @@ class MultiThreadExecutor(SimpleExecutor):
                 ctx.state.state = WfStates.crashed.state
                 ctx.save()
 
-    def execute(self, workflow, event=None, ctx=None):
+    def execute(self, workflow, trigger=None):
         """
-        :param event:
         :param workflow:
         :return:  (workflow, context)
         """
-        exec_id, async_result = self.execute_async(workflow, event=event, ctx=ctx)
+        exec_id, async_result = self.execute_async(workflow)
         return async_result.get()
 
-    def execute_async(self, workflow, event=None, ctx=None):
+    def execute_async(self, workflow, trigger=None):
         """
-        :param event:
         :param workflow:
         :return:  (execution id, instance of AsyncResult)
         """
-        if not ctx:
-            ctx = Context.new_context(workflow)
-            ctx.source_event = event
-        elif not event:
-            # append to list of event and provide a method to get the latest event
-            pass
-        ctx.state = WfStates.scheduling.state
-        ctx.save()
-        async_result = self.pool.apply_async(self._run, (workflow, ctx))
-        return (ctx.id, async_result)
+        workflow.set_state(WfStates.scheduling.state)
+        workflow.save()
+        async_result = self.pool.apply_async(self._run, (workflow, trigger))
+        return (workflow.get_id(), async_result)
 

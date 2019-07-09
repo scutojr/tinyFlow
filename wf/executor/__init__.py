@@ -1,18 +1,5 @@
 from threading import local
 
-from .simple_executor import SimpleExecutor
-from .multi_thread_executor import MultiThreadExecutor
-from .state import State, WfStates
-
-
-__all__ = [
-    'SimpleExecutor',
-    'MultiThreadExecutor',
-    'State',
-    'WfStates',
-    'wf_proxy',
-]
-
 
 _ctx = local()
 _wf = local()
@@ -38,3 +25,17 @@ class WorkflowProxy(object):
 
 
 workflow = WorkflowProxy()
+
+
+from .state import State, WfStates
+from .simple_executor import SimpleExecutor
+from .multi_thread_executor import MultiThreadExecutor
+
+
+__all__ = [
+    'SimpleExecutor',
+    'MultiThreadExecutor',
+    'State',
+    'WfStates',
+    'wf_proxy',
+]
