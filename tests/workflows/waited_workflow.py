@@ -20,15 +20,13 @@ WAIT_MS = 2 * 1000
 
 @wf.task('handle_server_down', entrance=True)
 def handle_server_down():
-    # import pudb
-    # pudb.set_trace()
     maintainant = False
     if maintainant:
         wf.log('server is already under maintainance mode')
         wf.end()
         return
     wf.log('receiving server down. wait %s ms for its recovery.' % WAIT_MS)
-    event = wf.source_event
+    event = wf.trigger.event
     # TODO: implement "goto" of wait method
     # TODO: implement "on_timeout" of wait method
     wf.wait(
@@ -73,7 +71,7 @@ def reboot_failed():
         wf.goto('notify_admin')
         return
     wf.log()
-    event = wf.source_event
+    event = wf.trigger.event
     wf.wait(
         event, EventState.INFO, WAIT_MS,
         goto='reboot_succeed',

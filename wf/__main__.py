@@ -7,7 +7,7 @@ from wf import config
 from wf import service_router
 from wf.server import HttpServer
 from wf.workflow import WorkflowManager
-from wf.executor import WorkflowExecutor
+from wf.executor import MultiThreadExecutor
 from wf.config import PropertyManager
 from wf.server.reactor import EventManager
 from wf.mq import EventListener
@@ -75,8 +75,8 @@ def start_services(conf):
     pack_dir = config.configuration.get(PACK_DIR)
 
     wf_manager = WorkflowManager(pack_dir)
-    wf_executor = WorkflowExecutor()
-    event_manager = EventManager(wf_manager)
+    wf_executor = MultiThreadExecutor()
+    event_manager = EventManager(wf_manager, wf_executor)
     prop_mgr = PropertyManager()
 
     _create_and_start_mq_listener(conf)

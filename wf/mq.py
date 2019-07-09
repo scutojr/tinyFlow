@@ -8,7 +8,7 @@ from stomp import ConnectionListener, Connection
 from stomp.exception import ConnectFailedException
 
 from wf import service_router
-from wf.server.reactor.event import Event
+from wf.server.reactor import Event, Trigger
 
 
 __all__ = [
@@ -78,7 +78,8 @@ class EventListener(ConnectionListener):
         # TODO: should we validate the message format and field type here?
         try:
             event = Event.from_json(message)
-            self.event_mgr.receive_event(event=event)
+            trigger = Trigger(event=event)
+            self.event_mgr.dispatch(trigger)
         except:
             self.logger.exception('failed to process message: ' + message)
         else:

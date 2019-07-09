@@ -1,6 +1,3 @@
-from .workflow import WorkflowBuilder, EventSubcription
-
-
 __all__ = [
     'service_router',
     'WorkflowBuilder',
@@ -43,3 +40,6 @@ class ServiceRouter(object):
 
 
 service_router = ServiceRouter()
+
+
+from .workflow import WorkflowBuilder, EventSubcription

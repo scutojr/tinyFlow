@@ -109,8 +109,8 @@ class TestAPI(unittest.TestCase):
             event = self._get_event(event_name)
             status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
 
-            print '@@@@:', wf_ids
             wf_ids = json.loads(wf_ids)
+            self.assertTrue(len(wf_ids) > 0)
             time.sleep(2)
             for wf_id in wf_ids:
                 print '@@@@ state is ', self._get_wf_state(wf_id)
@@ -122,8 +122,12 @@ class TestAPI(unittest.TestCase):
             wfs = json.loads(wfs)
             for wf in wfs:
                 option, wf_id = wf['user_decision']['options'][0], wf['_id']['$oid']
-                url = (endpoint % wf_id) + ('?decision=%s&comment=%s' % (option, 'xx'))
-                print  http.post(HOST, PORT, url)
+                url = endpoint % wf_id
+                body = {
+                    'decision': option,
+                    'comment': 'xx'
+                }
+                print  http.post(HOST, PORT, url, body=json.dumps(body))
                 time.sleep(0.5)
                 print '@@@@ state is ', self._get_wf_state(wf_id)
                 self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
