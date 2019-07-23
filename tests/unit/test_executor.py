@@ -1,21 +1,24 @@
 import unittest
 
-from wf.executor import WorkflowExecutor
+from wf.executor import SimpleExecutor, MultiThreadExecutor
 import tests.utils.db as db
+
+
+# TODO:
+#     1. ensure AsyncResult has wf_id
 
 
 class TestExecutor(unittest.TestCase):
     def setUp(self):
         db.connect()
-        self.executor = WorkflowExecutor()
-        # TODO: generate wf execution information here
 
     def tearDown(self):
         pass
 
     def test_get_wf_history(self):
-        ctxs = self.executor.get_wf_history()
-        self.assertTrue(ctxs.count() > 0)
+        for executor in [SimpleExecutor(), MultiThreadExecutor()]:
+            wfs = executor.get_execution_history()
+            self.assertTrue(wfs.count() > 0)
 
 
 if __name__ == '__main__':

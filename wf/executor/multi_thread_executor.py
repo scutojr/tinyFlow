@@ -2,12 +2,12 @@ import logging
 from threading import local
 from traceback import format_exc
 from multiprocessing.dummy import Pool
+from multiprocessing.pool import AsyncResult
 
 from bson.objectid import ObjectId
 
 from .state import WfStates, State
 
-from ..workflow import Context
 from .simple_executor import SimpleExecutor
 
 
@@ -31,21 +31,12 @@ class MultiThreadExecutor(SimpleExecutor):
                 ctx.state.state = WfStates.crashed.state
                 ctx.save()
 
-    def execute(self, workflow, trigger=None):
-        """
-        :param workflow:
-        :return:  (workflow, context)
-        """
-        exec_id, async_result = self.execute_async(workflow)
-        return async_result.get()
-
-    def execute_async(self, workflow, trigger=None):
+    def execute_async(self, workflow):
         """
         :param workflow:
         :return:  (execution id, instance of AsyncResult)
         """
-        workflow.set_state(WfStates.scheduling.state)
-        workflow.save()
-        async_result = self.pool.apply_async(self._run, (workflow, trigger))
-        return (workflow.get_id(), async_result)
+        async_result = self.pool.apply_async(self._run, (workflow,))
+        async_result.wf_id = workflow.id
+        return async_result
 

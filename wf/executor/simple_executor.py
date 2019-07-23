@@ -3,8 +3,7 @@ from traceback import format_exc
 
 from bson.objectid import ObjectId
 
-from .state import WfStates
-from ..workflow import Context
+from wf.workflow import wf_proxy, Workflow
 
 
 class SimpleExecutor(object):
@@ -12,30 +11,16 @@ class SimpleExecutor(object):
     def __init__(self):
         self.LOGGER = logging.getLogger(SimpleExecutor.__name__)
 
-        from . import set_cur_wf
-        self.set_wf = set_cur_wf
-
-    def _run(self, workflow, trigger=None):
-        self.set_wf(workflow)
-        workflow.set_state(WfStates.running.state)
-        workflow.save()
+    def _run(self, wf, trigger=None):
+        wf_proxy.set_workflow(wf)
         try:
-            workflow.execute(trigger)
+            wf.execute(trigger)
         except:
-            print format_exc()
-            workflow.set_state(WfStates.failed.state)
-            workflow.log(format_exc())
-        else:
-            if workflow.should_wait():
-                workflow.set_state(WfStates.waiting.state)
-            elif workflow.is_asking():
-                workflow.set_state(WfStates.asking.state)
-            else:
-                workflow.set_state(WfStates.successful.state)
-        workflow.save()
-        return workflow, workflow.get_ctx()
+            wf.log(format_exc())
+        wf.save()
+        return wf
 
-    def execute(self, workflow, trigger=None):
+    def execute(self, workflow):
         """
         :param event:
         :param workflow:
@@ -44,9 +29,9 @@ class SimpleExecutor(object):
         return self._run(workflow, trigger)
 
     @staticmethod
-    def get_wf_state(wf_ctx_id):
-        ctxs = Context.objects(id=ObjectId(wf_ctx_id))
-        return ctxs.first()
+    def get_wf_state(wf_id):
+        execution = Workflow.get_execution(wf_id)
+        return execution.state_str
 
     @staticmethod
     def get_execution_history(id=None, name=None, with_log=False, startBefore=None):
@@ -54,19 +39,19 @@ class SimpleExecutor(object):
         get execution history of the workflow
 
         :param name: select workflow with this name
-        :return: iterator for Context instance
+        :return: single or iterator of Workflow instance
         """
         if id:
-            ctx = Context.objects(id=id).first()
-            return ctx
+            wf = Workflow.objects(id=id).first()
+            return wf
         qry = {}
         if name:
-            qry['wf'] = name
+            qry['name'] = name
         if startBefore is not None:
             qry['start'] = {'$lte': startBefore}
-        cursor = Context.objects(__raw__=qry)
+        cursor = Workflow.objects(__raw__=qry)
 
-        if with_log:
-            cursor = cursor.exclude('msgs')
+        if not with_log:
+            cursor = cursor.exclude('logger')
         return cursor
 
