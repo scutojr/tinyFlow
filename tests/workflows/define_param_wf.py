@@ -1,4 +1,4 @@
-from wf import WorkflowBuilder, EventSubcription
+from wf import WorkflowBuilder, Subscription
 from wf.workflow import Parameter, ParamSource
 
 
@@ -7,7 +7,7 @@ p2 = Parameter('unchange', 2)
 p3 = Parameter('cluster', 'bj', ParamSource.event_tag)
 
 wf = WorkflowBuilder('define_param_wf', event_subscriptions = [
-    EventSubcription('test_event_param', 'warning'),
+    Subscription('test_event_param', 'warning'),
 ])
 
 

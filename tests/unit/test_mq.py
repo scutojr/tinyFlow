@@ -16,7 +16,8 @@ class TestMq(unittest.TestCase):
         self.listener = EventListener(
             self.host_and_ports, self.topic
         )
-        self.listener.start_listening()
+        reactor = Mock()
+        self.listener.start_listening(reactor)
 
         self.sender_client = Connection(self.host_and_ports)
         self.sender_client.start()

@@ -3,9 +3,9 @@ import bson.json_util as json
 from flask import request
 from flask.blueprints import Blueprint
 
-from wf.server.reactor.event import Event
+from wf.reactor.event import Event
 from wf.utils import CacheRef, now_ms
-from wf.workflow import Context
+from wf.workflow import Workflow
 
 
 TIMEOUT = 30 * 60 * 1000
@@ -62,5 +62,7 @@ def get_events():
 
 @bp.route('/web/workflows/<wf_id>/log', methods=['GET'])
 def get_lot(wf_id):
-    log = Context.get_log(wf_id)
-    return json.dumps(log or [])
+    logger = Workflow.get_logger(ObjectId(wf_id))
+    return json.dumps({
+        'logger': logger and logger.as_pymongo()
+    })

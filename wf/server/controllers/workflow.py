@@ -5,45 +5,47 @@ from flask import request, Response
 from flask.blueprints import Blueprint
 
 from wf import service_router
-from wf.workflow import Context, Scope
+from wf.workflow import Workflow
 from wf.utils import now_ms
-from wf.server.reactor import Event, EventState, Trigger
+from wf.reactor import Event
 
 
 bp = Blueprint('workflow', __name__)
 wf_manager = service_router.get_wf_manager()
 wf_executor = service_router.get_wf_executor()
-event_manager = service_router.get_event_manager()
+reactor = service_router.get_reactor()
 
 _source = 'http-api'
-_event_state = EventState.alls
 _wf_actions = {
     'exec'
 }
 
 
 @bp.route('/workflows', methods=['GET'])
-def list_workflow():
-    workflows = wf_manager.get_workflows()
+def list_workflow_info():
+    wf_builders = wf_manager.get_wf_builders()
     return json.dumps({
-        wf.name: wf.get_metadata() for wf in workflows
+        b.name: b.workflow_info for b in wf_builders
     })
 
 
 @bp.route('/workflows/<name>', methods=['GET'])
-def get_workflow(name):
-    wf = wf_manager.get_workflow(name)
-    if wf:
-        wf = wf.get_metadata()
-    return json.dumps(wf)
+def get_workflow_info(name):
+    builder = wf_manager.get_wf_builder(name)
+    info = None
+    if builder:
+        info = builder.workflow_info
+    return json.dumps({'workflow': info})
 
 
 @bp.route('/workflows/<name>/subscriptions', methods=['GET'])
 def get_workflow_subscriptions(name):
-    wf = wf_manager.get_workflow(name)
-    if wf:
-        subs = wf.get_subscriptions()
-        return json.dumps((sub.to_json() for sub in subs))
+    builder = wf_manager.get_wf_builder(name)
+    if builder:
+        subs = builder.subscriptions
+        return json.dumps({
+            'subscriptions': (sub.to_json() for sub in subs)
+        })
     else:
         return Response(status=400)
 
@@ -65,7 +67,7 @@ def run_wf(wf_name=''):
     if request.method == 'POST':
         event = Event.from_json(request.data)
     is_async = request.args.get('async', False)
-    ids, async_res = event_manager.receive_event(event, wf_name, extra_params)
+    ids, async_res = reactor.receive_event(event, wf_name, extra_params)
     if not is_async:
         for ar in async_res:
             ar.wait()
@@ -73,23 +75,25 @@ def run_wf(wf_name=''):
     """
     is_async = request.args.get('async', False)
 
-    event, params = None, request.args
+    event, req = None, request.args
     if request.method == 'POST':
         event = Event.from_json(request.data)
         event.save()
-
-    trigger = Trigger.build(wf_name=wf_name, event=event, params=params)
-    ids, async_res = event_manager.dispatch(trigger)
+        async_results = reactor.dispatch_event(event=event, wf_name=wf_name, req=req)
+    else:
+        async_results = reactor.dispatch_req(wf_name, req, event=event)
 
     if not is_async:
-        for ar in async_res:
+        for ar in async_results:
             ar.wait()
-    return json.dumps(ids)
+    return json.dumps([ar.wf_id for ar in async_results])
 
 
-@bp.route('/workflows/execution/<wf_id>', methods=['GET'])
+@bp.route('/workflows/<wf_id>/execution', methods=['GET'])
 def get_wf_execution_info(wf_id):
-    return wf_executor.get_wf_state(wf_id).to_json()
+    # TODO: do as what this method implies
+    state = wf_executor.get_wf_state(ObjectId(wf_id))
+    return state
 
 
 @bp.route('/executions/', methods=['GET'])
@@ -109,26 +113,25 @@ def get_executions():
     startBefore = int(args.get('startBefore', now_ms()))
     skip = int(args.get('skip', 0))
 
-    ctxs = (wf_executor
+    wfs = (wf_executor
             .get_execution_history(name=name, startBefore=startBefore)
             .limit(limit)
-            .exclude('msgs')
             .order_by('-start')
             .skip(skip)
            )
-    return json.dumps(ctxs.as_pymongo())
+    return json.dumps(wfs.as_pymongo())
 
 
 @bp.route('/executions/<id>', methods=['GET'])
 def get_execution(id):
-    ctx = wf_executor.get_execution_history(id=ObjectId(id))
-    return json.dumps(ctx.to_mongo())
+    wf = wf_executor.get_execution_history(id=ObjectId(id))
+    return json.dumps(wf.to_mongo())
 
 
 @bp.route('/executions/<id>/workflow', methods=['GET'])
-def get_wf_from_execution(id):
-    wf = wf_manager.get_wf_from_ctx(id)
-    return json.dumps(wf.get_metadata())
+def get_wf_info(id):
+    wf_info = wf_manager.get_workflow_info(wf_id=ObjectId(id))
+    return json.dumps(wf_info)
 
 
 @bp.route('/variables/', methods=['GET'])
@@ -141,52 +144,42 @@ def get_wf_var():
     wf_id = args.get('wf_id', None)
     if wf_id is None:
         return Response(status=400)
-    wf = wf_manager.get_wf_from_ctx(wf_id)
-    vars = wf_manager.get_variables(wf.name)
-    rsp = []
-    for var in vars:
-        serialize = var.to_json()
-        serialize['value'] = var.get(workflow=wf)
-        rsp.append(serialize)
-    return json.dumps(rsp)
+    vars = wf_manager.get_variables_from_wf(ObjectId(wf_id), filled_value=True)
+    return json.dumps(vars)
 
 
-@bp.route('/userDecisions/<ctx_id>', methods=['GET', 'POST'])
-@bp.route('/userDecisions/', methods=['GET', 'POST'], endpoint='user_decision_02')
-def user_decision(ctx_id=None):
+#@bp.routwf_manager.get_variables(wf.name)e('/userDecisions/<id>', methods=['GET', 'POST'])
+#@bp.route('/userDecisions/', methods=['GET', 'POST'], endpoint='user_decision_02')
+@bp.route('/userDecisions/<id>', methods=['GET', 'POST'])
+@bp.route('/userDecisions/', methods=['GET'])
+def user_decision(id=''):
     """
     TODO: the url is wrong for GET request
-    http params:
-        decision;
-        comment
-    :param ctx_id:
+    POST body:
+        {
+            'judge': '<>',
+            'comment': '<>'
+        }
+    :param id of the judgementHandler:
     :return:
     """
     if request.method == 'GET':
-        ctxs = Context.get_asking_context().fields(id=1, user_decision=1)
-        return json.dumps(ctxs.as_pymongo())
+        if id:
+            h = Workflow.get_judgement_handler(ObjectId(id))
+            return json.dumps({'judgement': h.as_pymongo()})
+        else:
+            hs = Workflow.get_judgement_handlers()
+            return json.dumps(hs.as_pymongo())
     else:
         body = json.loads(request.data)
-        try:
-            decision = body['decision']
-            comment = body.get('comment', '')
-        except KeyError:
-            raise Exception(
-                'body must be a json like this: {"decision": "yy", "comment": "yy"}'
-            )
+        judge, comment = body['judge'], body.get('comment', '')
+        handler = Workflow.get_judgement_handler(ObjectId(id))
+        judgement = handler.judgement
+        judgement.judge(judge, comment)
+        results = reactor.dispatch_judgement(handler.wf_id, judgement)
 
-        '''
-        wf = wf_manager.get_wf_from_ctx(ctx_id=ctx_id)
-        wf.make_decision(decision, comment)
+        return json.dumps([r.wf_id for r in results])
 
-        wf_executor.execute_async(workflow=wf)
-
-        return str(wf.get_ctx().id)
-        '''
-        trigger = Trigger.build(ctx_id=ctx_id, decision=decision, comment=comment)
-        ids, async_res = event_manager.dispatch(trigger)
-
-        return json.dumps(ids)
 
 @bp.route('/reactor/events', methods=['GET'])
 def get_events():

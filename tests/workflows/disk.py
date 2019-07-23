@@ -1,7 +1,7 @@
+from wf import WorkflowBuilder
 from wf.workflow import (
     Variable,
-    WorkflowBuilder,
-    EventSubcription
+    Subscription
 )
 
 
@@ -10,8 +10,8 @@ this is a workflow for handling disk error automatically
 '''
 
 subscribe  = [
-    EventSubcription('disk', 'warning'),
-    EventSubcription('disk', 'critical')
+    Subscription('disk', 'warning'),
+    Subscription('disk', 'critical')
 ]
 
 

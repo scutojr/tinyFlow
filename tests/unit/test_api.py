@@ -3,8 +3,7 @@ import json
 import unittest
 
 from tests import http
-from wf.executor import WfStates
-from wf.server.reactor import Event, EventState
+from wf.reactor import Event, EventState
 
 
 HOST, PORT = 'localhost', 54321
@@ -19,10 +18,11 @@ class TestAPI(unittest.TestCase):
         pass
 
     def _get_wf_state(self, wf_id):
-        endpoint = '/tobot/workflows/execution/' + wf_id
+        if isinstance(wf_id, dict):
+            wf_id = wf_id['$oid']
+        endpoint = '/tobot/workflows/' + wf_id + '/execution'
         status, reason, msg = http.get(HOST, PORT, endpoint)
-        wf = json.loads(msg)
-        return wf['state']
+        return msg.strip()
 
     def _get_event(self, name, entity='ojr-test', state='critical', tags={}):
         default = {'cluster': 'jy', 'role': 'DataNode', 'ip': '10.11.12.13'}
@@ -48,19 +48,19 @@ class TestAPI(unittest.TestCase):
 
         wf_ids = call('new_value')
         for wf_id in wf_ids:
-            self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
+            self.assertTrue(self._get_wf_state(wf_id) == 'succeed')
 
         wf_ids = call('new_value', self._get_event(ename, state=estate))
         for wf_id in wf_ids:
-            self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
+            self.assertTrue(self._get_wf_state(wf_id) == 'succeed')
 
         wf_ids = call('new_value', self._get_event(ename, state=estate, tags={'cluster': 'wrong cluster'}))
         for wf_id in wf_ids:
-            self.assertTrue(self._get_wf_state(wf_id) == WfStates.failed.state)
+            self.assertTrue(self._get_wf_state(wf_id) == 'failed')
 
         wf_ids = call()
         for wf_id in wf_ids:
-            self.assertTrue(self._get_wf_state(wf_id) == WfStates.failed.state)
+            self.assertTrue(self._get_wf_state(wf_id) == 'failed')
 
     def test_async_wf_and_wf_state(self):
         wf_name = 'sleepy_wf'
@@ -68,12 +68,15 @@ class TestAPI(unittest.TestCase):
         event = self._get_event('sleepy_test')
         status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
         wf_ids = json.loads(wf_ids)
-        time.sleep(0.5)
+        time.sleep(2)
+
+        self.assertTrue(len(wf_ids) > 0)
+
         for wf_id in wf_ids:
-            self.assertTrue(self._get_wf_state(wf_id) == WfStates.running.state)
+            self.assertTrue(self._get_wf_state(wf_id) == 'running')
         time.sleep(2)
         for wf_id in wf_ids:
-            self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
+            self.assertTrue(self._get_wf_state(wf_id) == 'succeed')
 
     def test_event_driven(self):
         wf_name = 'waited_workflow'
@@ -81,24 +84,27 @@ class TestAPI(unittest.TestCase):
 
         endpoint = '/tobot/reactor/workflows/%s?async=yes' % wf_name
         event = self._get_event(event_name)
-        status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
+        status, reason, msg = http.post(HOST, PORT, endpoint, event.to_json())
 
-        wf_ids = json.loads(wf_ids)
+        wf_ids = json.loads(msg)
+        self.assertTrue(len(wf_ids) > 0)
         time.sleep(0.5)
+
         for wf_id in wf_ids:
-            # self.assertTrue(self._get_wf_state(wf_id) == WfStates.waiting.state)
-            print '@@@@@@@@@@@@@@@:', wf_id, self._get_wf_state(wf_id)
+            self.assertTrue(self._get_wf_state(wf_id) == 'waiting')
         time.sleep(2)
 
         endpoint = '/tobot/reactor/workflows/%s?async=yes' % wf_name
         event = self._get_event(event_name, state=EventState.INFO)
-        status, reason, wf_ids = http.post(HOST, PORT, endpoint, event.to_json())
-
-        time.sleep(2)
-        wf_ids = json.loads(wf_ids)
+        status, reason, msg = http.post(HOST, PORT, endpoint, event.to_json())
+        tmp = json.loads(msg)
         for wf_id in wf_ids:
-            # self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
-            print '@@@@@@@@@@@@@@@:', wf_id, self._get_wf_state(wf_id)
+            self.assertTrue(wf_id in tmp)
+        time.sleep(2)
+
+        wf_ids = tmp
+        for wf_id in wf_ids:
+            self.assertTrue(self._get_wf_state(wf_id) == 'succeed')
 
     def test_user_decision(self):
         wf_name = 'user_decision'
@@ -113,40 +119,40 @@ class TestAPI(unittest.TestCase):
             self.assertTrue(len(wf_ids) > 0)
             time.sleep(2)
             for wf_id in wf_ids:
-                print '@@@@ state is ', self._get_wf_state(wf_id)
-                self.assertTrue(self._get_wf_state(wf_id) == WfStates.asking.state)
+                self.assertTrue(self._get_wf_state(wf_id) == 'waiting')
 
         def make_decision():
-            endpoint = '/tobot/userDecisions/%s' # TODO: refact this url so that it can be used as merely /userDecisions
-            status, reason, wfs = http.get(HOST, PORT, endpoint)
-            wfs = json.loads(wfs)
-            for wf in wfs:
-                option, wf_id = wf['user_decision']['options'][0], wf['_id']['$oid']
-                url = endpoint % wf_id
+            # TODO: refact this url so that it can be used as merely /userDecisions
+            endpoint = '/tobot/userDecisions/'
+            status, reason, msg = http.get(HOST, PORT, endpoint)
+            jud_handlers = json.loads(msg)
+            for jh in jud_handlers:
+                j = jh['judgement']
+                wf_id, options = jh['wf_id']['$oid'], j['options']
+                url = endpoint + jh['_id']['$oid']
                 body = {
-                    'decision': option,
+                    'judge': options[0],
                     'comment': 'xx'
                 }
-                print  http.post(HOST, PORT, url, body=json.dumps(body))
+                status, reason, msg = http.post(HOST, PORT, url, body=json.dumps(body))
                 time.sleep(0.5)
-                print '@@@@ state is ', self._get_wf_state(wf_id)
-                self.assertTrue(self._get_wf_state(wf_id) == WfStates.successful.state)
+                self.assertTrue(self._get_wf_state(wf_id) == 'succeed')
 
         trigger_wfs()
         time.sleep(2)
         make_decision()
 
     def test_get_wf_history(self):
-        endpoint = '/tobot/workflows/execution'
+        endpoint = '/tobot/executions/'
         _, _, rsp = http.get(HOST, PORT, endpoint)
         rsp = json.loads(rsp)
         self.assertTrue(len(rsp) > 0)
-        name = rsp[0]['wf']
+        name = rsp[0]['name']
 
         _, _, rsp = http.get(HOST, PORT, endpoint, **{'name': name})
         rsp = json.loads(rsp)
         for wf in rsp:
-            self.assertTrue(wf['wf'] == name)
+            self.assertTrue(wf['name'] == name)
 
 
     def test_exception(self):

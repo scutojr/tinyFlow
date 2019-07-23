@@ -1,10 +1,10 @@
 from time import sleep
 
-from wf import WorkflowBuilder, EventSubcription
+from wf import WorkflowBuilder, Subscription
 
 
 wf = WorkflowBuilder('sleepy_wf', event_subscriptions=[
-    EventSubcription('sleepy_test', 'critical')
+    Subscription('sleepy_test', 'critical')
 ])
 
 

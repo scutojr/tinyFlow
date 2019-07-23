@@ -1,6 +1,6 @@
 import unittest
 from mock import Mock, patch
-from wf.server.reactor.event import Event, EventState
+from wf.reactor import Event, EventState
 
 import tests.utils.db as db
 

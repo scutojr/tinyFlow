@@ -2,8 +2,8 @@ from random import randint
 
 # TODO: organize the EventState to a proper package
 # TODO: so that the client lib know as little detail of server code as possible
-from wf.server.reactor import EventState
-from wf import WorkflowBuilder, EventSubcription
+from wf.reactor import EventState
+from wf import WorkflowBuilder, Subscription
 
 
 event_name = 'server_down'
@@ -11,7 +11,7 @@ wf_name = 'waited_workflow'
 
 
 wf = WorkflowBuilder(wf_name, event_subscriptions=[
-    EventSubcription(event_name, 'critical')
+    Subscription(event_name, 'critical')
 ])
 
 
@@ -30,9 +30,10 @@ def handle_server_down():
     # TODO: implement "goto" of wait method
     # TODO: implement "on_timeout" of wait method
     wf.wait(
-        event, EventState.INFO, WAIT_MS,
-        goto='reboot_succeed',
-        on_timeout='reboot_failed'
+        event, EventState.INFO,
+        on_fired='reboot_succeed',
+        on_timeout='reboot_failed',
+        timeout_ms=WAIT_MS
     )
 
 
@@ -74,7 +75,7 @@ def reboot_failed():
     event = wf.trigger.event
     wf.wait(
         event, EventState.INFO, WAIT_MS,
-        goto='reboot_succeed',
+        on_fired='reboot_succeed',
         on_timeout='reboot_failed'
     )
 
