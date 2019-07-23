@@ -5,28 +5,22 @@ from ConfigParser import ConfigParser
 from threading import RLock
 
 
-HOME = op.abspath(op.join(op.dirname(__name__), '..'))
+__all__ = [
+    'Configuration', 'Property', 'PropertyManager'
+]
 
+
+HOME = op.abspath(op.join(op.dirname(__name__), '..'))
 PACK_DIR = 'pack_dir'
+PACK_LEGACY_DIR = 'pack_legacy_dir'
 MQ_EVENT_LISTENER_ENABLE = 'mq_event_listener_enable'
 MQ_TOPIC = 'mq_topic'
 MQ_ADDRESS = 'mq_address'
 
 
-__all__ = [
-    'Configuration', 'Property', 'PropertyManager'
-]
-
 _built_in_vars = [
     ('HOME', HOME)  # root dir of this project
 ]
-
-_types = {
-    'int': int,
-    'float': float,
-    'string': str
-}
-
 configuration = None
 
 

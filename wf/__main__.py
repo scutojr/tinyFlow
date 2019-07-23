@@ -9,7 +9,7 @@ from wf.server import HttpServer
 from wf.workflow import WorkflowManager
 from wf.executor import MultiThreadExecutor
 from wf.config import PropertyManager
-from wf.server.reactor import EventManager
+from wf.reactor import Reactor
 from wf.mq import EventListener
 
 
@@ -31,11 +31,9 @@ def parse_opts(args):
 
 def _connect_db():
     def ensure_index():
-        from wf.server.reactor.event import Event
-        from wf.workflow import Context
+        from wf.reactor.event import Event
 
         Event.ensure_indexes()
-        Context.ensure_indexes()
     db = 'test'
     host, port = 'mongo_test_server', 27017
     connect(db, host=host, port=port)
@@ -54,8 +52,9 @@ def set_up(argv, db = True, log = True):
     return conf
 
 
-def _create_and_start_mq_listener(conf):
+def _create_and_start_mq_listener(conf, reactor):
     enable = conf.get(config.MQ_EVENT_LISTENER_ENABLE, 'false').lower()
+    listener = None
     if enable == 'true':
         topic = conf.get(config.MQ_TOPIC)
         host_and_ports = conf.get(config.MQ_ADDRESS)
@@ -67,24 +66,26 @@ def _create_and_start_mq_listener(conf):
             host, port = hp.split(':')
             hap.append((host, int(port)))
         listener = EventListener(hap, topic)
-        service_router.set_event_listener(listener)
         listener.start_listening()
+    return listener
 
 
 def start_services(conf):
     pack_dir = config.configuration.get(PACK_DIR)
 
-    wf_manager = WorkflowManager(pack_dir)
     wf_executor = MultiThreadExecutor()
-    event_manager = EventManager(wf_manager, wf_executor)
+    reactor = Reactor(wf_executor)
+    wf_manager = WorkflowManager(conf, reactor, wf_executor)
     prop_mgr = PropertyManager()
+    listener = _create_and_start_mq_listener(conf, reactor)
 
-    _create_and_start_mq_listener(conf)
+    wf_manager.load_legacy()
 
     service_router.set_wf_manager(wf_manager)
     service_router.set_wf_executor(wf_executor)
-    service_router.set_event_manager(event_manager)
+    service_router.set_reactor(reactor)
     service_router.set_prop_mgr(prop_mgr)
+    service_router.set_event_listener(listener)
 
 
 def main(argv):

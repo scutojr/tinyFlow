@@ -1,18 +1,18 @@
 __all__ = [
     'service_router',
     'WorkflowBuilder',
-    'EventSubcription'
+    'Subscription'
 ]
 
 
 class ServiceRouter(object):
     # singleton
 
-    def get_event_manager(self):
-        return self.event_manager
+    def get_reactor(self):
+        return self.reactor
 
-    def set_event_manager(self, event_manager):
-        self.event_manager = event_manager
+    def set_reactor(self, reactor):
+        self.reactor = reactor
 
     def get_wf_manager(self):
         return self.workflow_manager
@@ -33,13 +33,13 @@ class ServiceRouter(object):
         self.prop_mgr = prop_mgr
 
     def get_event_listener(self):
-        self.event_listener = listener
+        return self.event_listener
 
     def set_event_listener(self, listener):
-        return self.event_listener
+        self.event_listener = listener
 
 
 service_router = ServiceRouter()
 
 
-from .workflow import WorkflowBuilder, EventSubcription
+from .workflow import WorkflowBuilder, Subscription

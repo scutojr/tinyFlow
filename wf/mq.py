@@ -7,8 +7,7 @@ from threading import Thread
 from stomp import ConnectionListener, Connection
 from stomp.exception import ConnectFailedException
 
-from wf import service_router
-from wf.server.reactor import Event, Trigger
+from wf.reactor import Event
 
 
 __all__ = [
@@ -43,12 +42,12 @@ class EventListener(ConnectionListener):
     def _disconnect(self):
         self.conn.disconnect()
 
-    def start_listening(self, ack='auto'):
+    def start_listening(self, reactor, ack='auto'):
         """
         :param ack: either auto, client or client-individual
         """
         self.should_reconnect = True
-        self.event_mgr = service_router.get_event_manager()
+        self.reactor = reactor
         self._connect_and_subscribe(ack)
 
     def stop_listening(self):
@@ -78,8 +77,7 @@ class EventListener(ConnectionListener):
         # TODO: should we validate the message format and field type here?
         try:
             event = Event.from_json(message)
-            trigger = Trigger(event=event)
-            self.event_mgr.dispatch(trigger)
+            self.reactor.dispatch_event(event)
         except:
             self.logger.exception('failed to process message: ' + message)
         else:
