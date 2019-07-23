@@ -1,250 +1,261 @@
+import sys
 import json
 from copy import deepcopy
 from functools import partial
 from traceback import format_exc
 
-import wf
-from .context import Context
-from wf.server.reactor import EventState
+from bson import ObjectId
+import mongoengine as me
+
+from wf.utils import now_ms
+from wf.reactor.event import EventState
+from .execution import *
+from .log_processor import LogProcessor
+from .trigger import TriggerChain
+from .judgement import Judgement
 
 
-__all__ = [
-    'Workflow',
-    'Context'
-]
+class AsyncHandler(me.Document):
+    wf_id = me.ObjectIdField()
+    timestamp = me.IntField()
 
-'''
-Workflow Feature
-    trigger:
-        1. event driven
-        2. user interactive
-    feature
-        1. event listening with timeout
-        2. sleep with timeout
-        3. user decision
-        4. workflow diagram for better visualization
-'''
+    on_fired = me.StringField()
+    on_timeout = me.StringField()
+
+    meta = {
+        'allow_inheritance': True,
+    }
 
 
-class ParamSource(object):
-    event_tag = 0
-    event_param = 1
-    user = 2
-
-
-class Parameter(object):
-    def __init__(self, name, default=None, source=ParamSource.user, description=''):
-        self.name = name
-        self.default = default
-        self.description = description
-        self.source = source
-
-
-class Package(object):
-    def __init__(self, dir):
-        self.dir = dir
-
-
-class EventSubcription(object):
-    def __init__(self, event_name, event_state):
-        if event_state not in EventState.alls:
-            raise Exception('value of event state must be one of: ' + ','.join(EventState.alls))
-        self.name = event_name
-        self.state = event_state
-
-    def to_key(self):
-        return self.name, self.state
-
-    def to_json(self):
-        return {
-            'name': self.name,
-            'state': self.state
-        }
+class AsyncEventHandler(AsyncHandler):
+    name = me.StringField()
+    entity = me.StringField()
+    state = me.StringField()
 
     @staticmethod
-    def key_from_event(event):
-        return event.name, event.state
+    def construct(event, to_state, wf_id, on_fired, on_timeout):
+        # TODO: validate to_state
+        n, e = event.name, event.entity
+        handler = AsyncEventHandler(
+            name=n, entity=e,
+            state=to_state, wf_id=wf_id,
+            on_fired=on_fired, on_timeout=on_timeout
+        )
+        return handler
+
+    def _handle(self, wf_mgr, wf_executor, next_task, event=None):
+        # TODO:
+        #     during testing, I remove all workflow, which has some observers
+        #     registered. After sending an event, those observers will raise
+        #     an exception of no workflow found. Then the event sending request
+        #     failed. I Think it's not good, the response should be hybrid and
+        #     contains both correct and error result in the response
+        wf = wf_mgr.get_workflow(wf_id=self.wf_id)
+        wf.before_execute(next_task=next_task, event=event)
+        result = wf_executor.execute_async(wf)
+        return result
+
+    def handle_fired(self, wf_mgr, wf_executor, event):
+        return self._handle(wf_mgr, wf_executor, self.on_fired, event)
+
+    def handle_timeout(self, wf_mgr, wf_executor):
+        return self._handle(wf_mgr, wf_executor, self.on_timeout)
 
 
-class Workflow(object):
+class JudgementHandler(AsyncHandler):
+    judgement = me.EmbeddedDocumentField(Judgement)
 
-    EXCEP = 1
-    MAX_TASK_RUN = 2
+    @staticmethod
+    def construct(wf_id, judgement, on_fired, on_timeout=''):
+        # TODO: support on_timeout
+        jh = JudgementHandler(
+            wf_id=wf_id,
+            judgement=judgement,
+            on_fired=on_fired,
+            on_timeout=on_timeout
+        )
+        return jh
 
-    def __init__(self, name, desc='', max_task_run=100):
-        self.name = name
-        self.desc = desc
-        self._asking = False
-        self._waited = False
-        self._ending = False
-        self._tasks = {}
-        self._graph = {}
-        self._ctx = None # assign before the workflow is to running
-        self._max_task_run = max_task_run
+    def _handle(self, wf_mgr, wf_executor, next_task, judgement=None):
+        wf = wf_mgr.get_workflow(wf_id=self.wf_id)
+        wf.before_execute(next_task=next_task, judgement=judgement)
+        result = wf_executor.execute_async(wf)
+        return result
 
-        self._entrance = None
-        self._req_params = {}
-        self._req_event = None
+    def handle_fired(self, wf_mgr, wf_executor, judgement):
+        return self._handle(wf_mgr, wf_executor, self.on_fired, judgement)
 
-    def instance(self, ctx=None, ctx_id=None):
-        # TODO: what happen if ctx is not found with this ctx_id
-        wf = deepcopy(self)
-        if ctx is None:
-            if ctx_id:
-                ctx = Context.from_ctx_id(ctx_id)
-            else:
-                ctx = Context.new_context(wf)
-        wf.set_ctx(ctx)
-        return wf
+    def handle_timeout(self, wf_mgr, wf_executor):
+        return self._handle(wf_mgr, wf_executor, self.on_timeout)
 
-    def log(self, msg, phase=None):
-        self._ctx.log(msg, phase=phase)
 
-    def sleep(self):
-        pass
+class Dispatcher(object):
+    def __init__(self, wf_mgr, wf_executor):
+        self.wf_mgr = wf_mgr
+        self.wf_executor = wf_executor
 
-    def wait(self, event, to_state, timeout_ms, goto='', on_timeout=''):
-        if to_state not in EventState.alls:
-            raise Exception('to_state must be in the list of: ' + ','.join(EventState.alls))
-        self._ctx.set_callback(goto, on_timeout)
-        event_manager = wf.service_router.get_event_manager()
-        event_manager.add_hook_for_event(event, self.get_id(), to_state, timeout_ms)
-        self._waited = True
+    def attach(self, handler):
+        handler.save()
 
-    def goto(self, next_task_name, reason=None):
-        self._ctx.next_task = next_task_name
+    def detach(self, handler):
+        handler.delete()
 
-    def ask(self, desc, options, goto):
-        self._ctx.create_decision(desc, *options)
-        self._ctx.set_callback(goto, goto)
-        self._asking = True
+    def _dispatch(self, handlers, payload):
+        results = []
+        for h in handlers:
+            r = h.handle_fired(self.wf_mgr, self.wf_executor, payload)
+            # TODO: if crash during the wf execution, this observer will lose forever
+            self.detach(h)
+            results.append(r)
+        return results
 
-    def task(self, task_name, entrance=False, **to):
-        self._graph[task_name] = to
-        return partial(self.add_task, task_name, entrance=entrance, **to)
+    def dispatch_event(self, event):
+        handlers = AsyncEventHandler.objects(
+            name = event.name,
+            entity = event.entity,
+            state = event.state
+        )
+        return self._dispatch(handlers, event)
 
-    def add_task(self, task_name, func, entrance=False, **to):
-        self._graph[task_name] = to
-        self._tasks[task_name] = func
-        if entrance:
-            self._entrance = task_name
-        return func
+    def dispatch_judgement(self, wf_id, judgement):
+        handlers = JudgementHandler.objects(wf_id=ObjectId(wf_id))
+        return self._dispatch(handlers, judgement)
 
-    def parse_task_params(self, func):
+
+class Workflow(me.Document):
+    name = me.StringField()
+    version = me.IntField()
+
+    start = me.IntField(default=0)
+
+    execution = me.EmbeddedDocumentField(Execution)
+    logger = me.EmbeddedDocumentField(LogProcessor)
+    tri_chain = me.EmbeddedDocumentField(TriggerChain)
+
+    meta = {
+        'indexes': [
+            'start',
+        ]
+    }
+
+    def construct(self, topology, reactor):
+        self.topology = topology
+        self.reactor = reactor
+
+        if not self.id:
+            self.logger = LogProcessor()
+            self.execution = Execution(
+                next_task=topology.entrance,
+                wf_name=self.name
+            )
+            self.tri_chain = TriggerChain()
+            self.start = now_ms()
+
+    def ask(self, desc, options, on_fired):
         """
-        TODO: this method is quite confused, because you need to understand the state
-              between workflowBuilder, first workflow instance and workflow instance
-              created on every request;
-              calling order of task() and entrance()
+        TODO:
+        1. update the state of execution
+        2. not register a listener to reactor until current execution exit
         """
-        inputs = []
-        defs = func.func_defaults
-        if defs is None:
-            return inputs
-        trg = self.get_trigger()
-        params, event = trg.params, trg.event
-        for param_def in defs:
-            name, default, source = param_def.name, param_def.default, param_def.source
-            if source == ParamSource.user and params:
-                inputs.append(params.get(name, default))
-            elif event is not None:
-                if source == ParamSource.event_param:
-                    inputs.append(event.params.get(name, default))
-                elif source == ParamSource.event_tag:
-                    inputs.append(event.tags.get(name, default))
-                else:
-                    inputs.append(default)
-            else:
-                inputs.append(default)
-        return inputs
+        options = [str(o) for o in options]
+        judgement = Judgement(desc=desc, options=options)
 
-    def get_id(self):
-        return self._ctx.id
+        handler = JudgementHandler.construct(self.id, judgement, on_fired)
+        self.reactor.attach_judgement(handler)
 
-    def set_ctx(self, ctx):
-        if not ctx.next_task:
-            # TODO: refact it because it goes wrong if we call set_ctx before adding
-            # task to the workflow
-            ctx.next_task = self._entrance
-        self._ctx = ctx
+        self.execution.state = STATE_WAITING
 
-    def get_ctx(self):
-        return self._ctx
+    def wait(self, event, to_state, on_fired='', on_timeout='', timeout_ms=sys.maxint):
+        # TODO: event may not so handy for user to use ? refact it to make wait method
+        #       part of Event?
+        # validate to_state, on_fired and on_timeout
+        handler = AsyncEventHandler.construct(
+            event, to_state, self.id,
+            on_fired=on_fired,
+            on_timeout=on_timeout
+        )
+        self.reactor.attach_async_workflow(handler)
 
-    def next_task(self):
-        while not self._ending:
-            next_task = self._ctx.next_task
-            yield (next_task, self._tasks[next_task])
+        self.execution.state = STATE_WAITING
 
     def end(self):
-        self._ending = True
+        self.execution.end()
 
-    def should_wait(self):
-        return self._waited
+    def get_prop(self, key, default=None):
+        return self.execution.get_prop(key, default=default)
 
-    def is_asking(self):
-        return self._asking
+    def set_prop(self, key, value):
+        return self.execution.set_prop(key, value)
 
+    def goto(self, task_name, reason=None):
+        self.execution.goto(task_name)
+
+    def set_next_task(self, next_task_name):
+        self.execution.next_task = next_task_name
+
+    def before_execute(self, next_task=None, event=None, judgement=None, req=None):
+        next_task and self.set_next_task(next_task)
+        self.tri_chain.add_trigger(event=event, req=req, judgement=judgement)
+
+    def execute(self, trigger=None):
+        logger = self.logger
+        try:
+            self.execution.execute(self.topology, self.tri_chain)
+        except Exception as e:
+            # TODO: the phase?
+            logger.system(format_exc())
+            raise e
+
+    @property
+    def state(self):
+        return self.execution.state
+
+    @property
+    def state_str(self):
+        return state_str(self.execution.state)
+
+    @staticmethod
+    def get_judgement_handler(id):
+        """
+        :return: Judgement instancet or None if not found
+        """
+        return JudgementHandler.objects(id=ObjectId(id)).first()
+
+    @staticmethod
+    def get_judgement_handlers():
+        """
+        :return: iterable of Judgement instance
+        """
+        return JudgementHandler.objects()
+
+    @staticmethod
+    def get_execution(wf_id):
+        wf = Workflow.objects(id=wf_id).only('execution').first()
+        return wf and wf.execution
+
+    @staticmethod
+    def get_logger(wf_id):
+        wf = Workflow.objects(id=wf_id).only('logger').first()
+        return wf and wf.logger
+
+    '''
     def make_decision(self, decision, comment):
         self._ctx.make_decision(decision, comment)
 
     def get_decision(self):
         return self._ctx.user_decision.decision
 
-    def get_prop(self, key, default=None):
-        return self._ctx.get_prop(key, default=default)
-
-    def set_prop(self, key, value):
-        self._ctx.set_prop(key, value)
-
-    def before_resume(self):
-        self._ctx.next_task = self._ctx.get_latest_callback()
-
-    def execute(self, trigger):
-        self.before_execute(trigger)
-
-        flag, count = -1, 0
-        ctx = self._ctx
-        for task_name, task_func in self.next_task():
-            if self.should_wait() or self.is_asking():
-                break
-            count += 1
-            try:
-                task_func(*self.parse_task_params(task_func))
-            except:
-                flag, msg = self.EXCEP, format_exc()
-                ctx.log(msg)
-                self.end()
-            if count >= self._max_task_run:
-                flag, msg = self.MAX_TASK_RUN, 'max task run exceeded'
-                ctx.log('end due to max number of task run exceeded: ' + self._max_task_run)
-                self.end()
-            ctx.exec_history.append(task_name)
-            print self.get_trigger()
-            print self.get_trigger().to_json()
-            ctx.save()
-        if flag != -1:
-            raise Exception(msg)
-
     def get_metadata(self):
-        return {
-            'name': self.name,
-            'description': self.desc,
-            'graph': self._graph,
-            'entrance': self._entrance
-        }
+        pass
 
-    def before_execute(self, trigger):
-        self._update_trigger(trigger)
-        print trigger
-        print self._ctx.trigger
+    def get_id(self):
+        return self._ctx.id
 
-    def _update_trigger(self, trigger):
-        tri = self._ctx.trigger
-        if tri:
-            tri.update(trigger)
-        else:
-            self._ctx.trigger = trigger
+    def set_ctx(self, ctx):
+        pass
+
+    def get_ctx(self):
+        return self._ctx
 
     def get_trigger(self):
         return self._ctx.trigger
@@ -263,3 +274,5 @@ class Workflow(object):
 
     def __str__(self):
         return json.dumps(self._graph)
+    '''
+

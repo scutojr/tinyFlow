@@ -1,4 +1,4 @@
-from ..executor import workflow
+from .proxy import wf_proxy
 
 import wf
 
@@ -24,7 +24,7 @@ class Variable(object):
 
         assert scope in Scope.alls, 'scope must be one of: ' + Scope.alls
 
-    def get(self, default=None, workflow=workflow):
+    def get(self, default=None, workflow=wf_proxy):
         s = self.scope
         name = self.name
         if s == Scope.local:
@@ -40,10 +40,10 @@ class Variable(object):
         s = self.scope
         name = self.name
         if s == Scope.local:
-            return workflow.set_prop(name, value)
+            return wf_proxy.set_prop(name, value)
         elif s == Scope.workflow:
             ns = NS_WF
-            name = workflow.name + ':' + name
+            name = wf_proxy.name + ':' + name
         else:
             ns = NS_OVERALL
         return self._router.get_prop_mgr().update_property(name=name, namespace=ns, value=value)
