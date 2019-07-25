@@ -157,6 +157,8 @@ class Workflow(me.Document):
         1. update the state of execution
         2. not register a listener to reactor until current execution exit
         """
+        if self.execution.state == STATE_WAITING:
+            raise Exception('workflow is already in waiting state')
         options = [str(o) for o in options]
         judgement = Judgement(desc=desc, options=options)
 
@@ -169,6 +171,8 @@ class Workflow(me.Document):
         # TODO: event may not so handy for user to use ? refact it to make wait method
         #       part of Event?
         # validate to_state, on_fired and on_timeout
+        if self.execution.state == STATE_WAITING:
+            raise Exception('workflow is already in waiting state')
         handler = AsyncEventHandler.construct(
             event, to_state, self.id,
             on_fired=on_fired,
@@ -213,6 +217,10 @@ class Workflow(me.Document):
     @property
     def state_str(self):
         return state_str(self.execution.state)
+
+    @property
+    def workflow_info(self):
+        return self.topology.workflow_info()
 
     @staticmethod
     def get_judgement_handler(id):
