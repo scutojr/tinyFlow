@@ -3,13 +3,15 @@ import ReactTable from 'react-table'
 import 'react-table/react-table.css'
 
 
+const defaultProps = {
+  data: [],
+  defaultPageSize: 5
+};
+
+
 class Variables extends Component {
   constructor(props) {
     super(props);
-    this.state = {
-      loading: true,
-      data: []
-    }
     this.columns = [
       {
         Header: "Name",
@@ -27,29 +29,20 @@ class Variables extends Component {
     ]
   }
 
-  fetch = () => {
-
-  }
-
-  componentDidMount = () => {
-
-  }
-
-  renderTable = () => {
-
-  }
-
   render() {
     return (
       <ReactTable
         showPagination={false}
-        loading={this.state.loading}
         columns={this.columns}
-        data={this.state.data}
+        data={this.props.data}
+        defaultPageSize={this.props.defaultPageSize}
       />
     )
   }
 }
+
+
+Variables.defaultProps = defaultProps;
 
 
 export default Variables;

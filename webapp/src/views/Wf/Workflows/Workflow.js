@@ -1,156 +1,251 @@
 import React, { Component } from 'react';
-import { Badge, Card, CardBody, CardHeader, Row, Col } from 'reactstrap';
+import {
+  Badge, Card, CardBody, CardHeader,
+  Row, Col, Nav, NavItem, NavLink,
+  TabContent, FormGroup, Alert
+} from 'reactstrap';
 import Axios from 'axios';
 import ReactTable from 'react-table'
 
 import 'react-table/react-table.css'
 
-import { StateLabel, WorkflowDiagram } from '../Common';
+import { StateLabel, EventStateLabel, WorkflowDiagram, Executions } from '../Common';
 
 
-class ExecutionHistory extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      data: [],
-      loading: true,
-      pageSize: 5
-    }
-    this.wfName = this.props.name;
-
-    this.columns = [{
-      Header: "Start at",
-      accessor: "start",
-    }, {
-      Header: "State",
-      accessor: "state",
-      Cell: (props) => {
-        const state = StateLabel(props.value);
-        if (state == undefined) {
-          return (<Badge color="dark">unknown</Badge>)
-        } else {
-          return state.label;
+/**
+  {
+    "subscriptions": [
+        {
+            "name": "server_down",
+            "state": "critical"
         }
-      }
-    }];
+    ],
+    "topology": {
+        "description": "",
+        "entrance": "handle_server_down",
+        "graph": {
+            "check_server_health": {},
+            "handle_server_down": {},
+            "notify_admin": {},
+            "reboot_failed": {},
+            "reboot_succeed": {},
+            "repair_the_server": {},
+            "start_all_service": {}
+        },
+        "name": "waited_workflow"
+    },
+    "variables": [{name, desc, scope}]
   }
-
-  componentDidMount = () => {
-    this.setState({ loading: true })
-    const url = "/tobot/executions?name=" + this.wfName;
-    Axios.get(url).then((res) => {
-      const executions = res.data;
-      executions.forEach((element) => {
-        if (element.start == undefined) {
-          element.start = Date.now();
-        }
-      })
-      this.setState({
-        loading: false,
-        data: executions,
-        pageSize: executions.length > 0 ? executions.length : 5
-      })
-    });
-  }
-
-  render() {
-    return (
-      <ReactTable
-        data={this.state.data}
-        loading={this.state.loading}
-        columns={this.columns}
-        showPagination={false}
-        pageSize={this.state.pageSize}
-      />
-    )
-  }
-}
-
-
-
+ */
 class Workflow extends Component {
 
   constructor(props) {
     super(props);
     this.state = {
-      workflowInfo: undefined
+      workflowInfo: undefined,
+      activeTab: "wf",
     };
+
+    this.collumnsVar = [
+      {
+        Header: "Name",
+        accessor: "name",
+      },
+      {
+        Header: "Scope",
+        accessor: "scope",
+      },
+      {
+        Header: "Description",
+        accessor: "desc",
+      }
+    ]
   }
 
-  fetchWorkflowInfo = () => {
+  _fetchWorkflowInfo = () => {
     const name = this.props.match.params.name;
-    const endpoint = "/tobot/workflows/" + name;
+    const endpoint = "/tobot/web/workflows/" + name;
     Axios.get(endpoint).then((res) => {
-      const wf = res.data;
-      if (wf != "null") {
+      const wfInfo = res.data;
+      if (wfInfo != "null") {
         this.setState({
-          workflowInfo: wf
+          workflowInfo: wfInfo
+        })
+      }
+    })
+  }
+
+  _fetchExecutionHistory = () => {
+    const name = this.props.match.params.name;
+    const endpoint = "/tobot/web/workflows/" + name;
+    Axios.get(endpoint).then((res) => {
+      const wfInfo = res.data;
+      if (wfInfo != "null") {
+        this.setState({
+          workflowInfo: wfInfo
         })
       }
     })
   }
 
   componentDidMount = () => {
-    this.fetchWorkflowInfo();
+    this._fetchWorkflowInfo();
+  }
+
+  _workflow = () => {
+    let { name, description } = this.state.workflowInfo.topology;
+    return (
+      <CardBody >
+        <FormGroup row>
+          <Col xs="1" md="1">
+            <b>Name</b>
+          </Col>
+          <Col xs="11" md="11">
+            {name}
+          </Col>
+        </FormGroup>
+
+        <FormGroup row>
+          <Col xs="1" md="1">
+            <b>Description</b>
+          </Col>
+          <Col xs="11" md="11">
+            <textarea
+              style={{
+                width: "50%",
+                height: "100px"
+              }}
+              value={description}
+              spellCheck={false}
+            />
+          </Col>
+        </FormGroup>
+
+        <hr />
+
+        <h5>Event Subscription</h5>
+
+        {
+          this.state.workflowInfo.subscriptions.map((sub) => {
+            return (
+              <CardBody body outline color="danger"
+                style={{ backgroundColor: '#F7F7F5', "margin-bottom": "10px", width: '25%' }}
+              >
+                <b>Name</b>: {sub.name}
+                <br />
+                <b>State</b>: {EventStateLabel(sub.state)}
+              </CardBody>
+            )
+          })
+        }
+      </CardBody>
+    )
+  }
+
+  _variables = () => {
+    return (
+      <ReactTable
+        data={this.state.workflowInfo.variables}
+        columns={this.collumnsVar}
+        showPagination={false}
+        defaultPageSize={5}
+      />
+    );
+  }
+
+  _diagram = () => {
+    return (
+      <Card>
+        <CardBody className="pb-0" style={{ "backgroundColor": "#8f9ba6" }}>
+          <WorkflowDiagram workflow={this.state.workflowInfo.topology} />
+        </CardBody>
+      </Card>
+    )
+  }
+
+  _error = (msg) => {
+    return (
+      <CardBody>
+        <Alert color="danger">
+          Error: {msg}
+        </Alert>
+      </CardBody>
+    )
+  }
+
+  toggle = (tabName) => {
+    this.setState({ activeTab: tabName });
+  }
+
+  tabContent = () => {
+    if (!this.state.workflowInfo) {
+      return this._error("no workflow found!");
+    }
+    const tab = this.state.activeTab;
+    if (tab == "wf") {
+      return this._workflow();
+    } else if (tab == "var") {
+      return this._variables();
+    } else if (tab == "diagram") {
+      return this._diagram();
+    } else {
+      return this._error("Internal Error");
+    }
   }
 
   render() {
     const wf = this.state.workflowInfo;
     const name = this.props.match.params.name;
     return (
-      <div className="animated fadeIn">
+      <>
         <Row>
-
-          <Col xs="12" xl="8">
-            <Row>
-              <Col xs="12">
-                <Card>
-                  <CardHeader>
-                    Workflow introduction
-               </CardHeader>
-                  <CardBody className="pb-0">
-                    {wf == undefined ? '' : wf.description}
-                  </CardBody>
-                </Card>
-              </Col>
-
-              <Col xs="12">
-                <Card>
-                  <CardHeader>
-                    Event Listening
-               </CardHeader>
-                  <CardBody className="pb-0">
-                    here is the event info
-                </CardBody>
-                </Card>
-              </Col>
-
-              <Col xs="12">
-                <Card>
-                  <CardHeader>
-                    Workflow Diagram
-               </CardHeader>
-                  <CardBody className="pb-0" style={{ "backgroundColor": "#8f9ba6" }}>
-                    <WorkflowDiagram workflow={wf} />
-                  </CardBody>
-                </Card>
-              </Col>
-            </Row>
+          <Col>
+            <Nav tabs>
+              <NavItem>
+                <NavLink
+                  active={this.state.activeTab == "wf"}
+                  onClick={() => { this.toggle("wf"); }}
+                >
+                  Workflow
+            </NavLink>
+              </NavItem>
+              <NavItem>
+                <NavLink
+                  active={this.state.activeTab == "var"}
+                  onClick={() => { this.toggle("var"); }}
+                >
+                  Variables
+            </NavLink>
+              </NavItem>
+              <NavItem>
+                <NavLink
+                  active={this.state.activeTab == "diagram"}
+                  onClick={() => { this.toggle("diagram"); }}
+                >
+                  Diagram
+            </NavLink>
+              </NavItem>
+            </Nav>
+            <TabContent activeTab={this.state.activeTab[0]}>
+              {this.tabContent()}
+            </TabContent>
           </Col>
+        </Row>
 
-          <Col xs="12" xl="4">
+        <Row style={{ "margin-top": "20px" }}>
+          <Col>
             <Card>
               <CardHeader>
                 Execution History
             </CardHeader>
               <CardBody className="pb-0">
-                {/* here comes a table for the latest execution info of this workflow */}
-                <ExecutionHistory name={name} />
+                <Executions wfName={name} />
               </CardBody>
             </Card>
           </Col>
         </Row>
-      </div>
+
+      </>
     );
   }
 }

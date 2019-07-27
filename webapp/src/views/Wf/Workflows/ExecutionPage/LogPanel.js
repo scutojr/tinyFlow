@@ -4,6 +4,12 @@ import {
 } from 'reactstrap';
 
 
+const defaultProps = {
+  log: undefined,
+  wfId: ""
+}
+
+
 class LogPannel extends Component {
   constructor(props) {
     super(props);
@@ -13,6 +19,10 @@ class LogPannel extends Component {
       }
     }
     this.phases = undefined;
+  }
+
+  _fetchLog = () => {
+
   }
 
   getPhases = (logs) => {
@@ -104,6 +114,9 @@ class LogPannel extends Component {
     )
   }
 }
+
+
+LogPannel.defaultProps = defaultProps; 
 
 
 export default LogPannel;

@@ -42,7 +42,7 @@ class EventFilter extends Component {
     this.inputName = React.createRef();
     this.inputTags = React.createRef();
     this.inputEntity = React.createRef();
-    this.eventState = "INFO";
+    this.eventState = "all";
     this.startBefore = 0;
     this.startAfter = 0;
   }
@@ -116,10 +116,10 @@ class EventFilter extends Component {
         <Input type="select" id="cvv" required
           onChange={(e) => { this.eventState = e.target.value }}
         >
-          <option value="ALL"> ALL </option>
-          <option value="INFO"> INFO </option>
-          <option value="WARNING"> WARNING </option>
-          <option value="CRITICAL"> CRITICAL </option>
+          <option value="all"> ALL </option>
+          <option value="info"> INFO </option>
+          <option value="warning"> WARNING </option>
+          <option value="critical"> CRITICAL </option>
         </Input>
       </FormGroup>
     );
@@ -161,7 +161,9 @@ class EventFilter extends Component {
           if (tags) params.tags = tags;
           if (entity) params.entity = entity;
           if (this.eventState != "ALL") {
+            console.log(this.eventState)
             params.state = this.eventState;
+            console.log(params.state)
           }
           params.startBefore = startBefore;
           params.startAfter = startAfter;
@@ -271,7 +273,7 @@ class ReactTableDemo extends Component {
         business: "search"
       },
       start: 1234567890,
-      state: "INFO",
+      state: "info",
       params: {
         p1: "p1",
         p2: "p2"
@@ -306,16 +308,14 @@ class ReactTableDemo extends Component {
 
   renderState(props) {
     let state = props.value;
+    console.log(state)
     switch (state) {
-      case "INFO":
+      case "info":
         return <Badge color="primary">INFO</Badge>;
-        break;
-      case "WARNING":
+      case "warning":
         return <Badge color="warning">WARNING</Badge>;
-        break;
-      case "CRITICAL":
+      case "critical":
         return <Badge color="danger">CRITICAL</Badge>;
-        break;
       default:
         return <Badge color="dark">UNKNOWN</Badge>;
     }
