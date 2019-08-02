@@ -9,12 +9,12 @@ from wf.workflow import wf_proxy, Workflow
 class SimpleExecutor(object):
 
     def __init__(self):
-        self.LOGGER = logging.getLogger(SimpleExecutor.__name__)
+        self.LOGGER = logging.getLogger(self.__class__.__name__)
 
-    def _run(self, wf, trigger=None):
+    def _run(self, wf):
         wf_proxy.set_workflow(wf)
         try:
-            wf.execute(trigger)
+            wf.execute()
         except:
             wf.log(format_exc())
         wf.save()
@@ -26,15 +26,11 @@ class SimpleExecutor(object):
         :param workflow:
         :return:  (workflow, context)
         """
-        return self._run(workflow, trigger)
-
-    @staticmethod
-    def get_wf_state(wf_id):
-        execution = Workflow.get_execution(wf_id)
-        return execution.state_str
+        return self._run(workflow)
 
     @staticmethod
     def get_execution_history(id=None, name=None, with_log=False, startBefore=None):
+        # TODO: move this method to WorkflowManager
         """
         get execution history of the workflow
 
