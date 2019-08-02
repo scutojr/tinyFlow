@@ -7,14 +7,40 @@ CWD := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 
 .PHONY: mongo_client
+.PHONY: server_test
+.PHONY: runner
+.PHONY: test
+.PHONY: install
+.PHONY: help
+
+.PHONY: dev_mq_client
+.PHONY: dev_kill
+.PHONY: dev_kill_runner
+
+
 mongo_client:
 	@mongo mongo_test_server:27017
 
-.PHONY: server_test
-server_test:
-	@python $(CWD)/wf -f $(CWD)/config/wf.ini.template
 
-.PHONY: test
+server_test:
+	@python $(CWD)/bin/tobot.py -f $(CWD)/config/wf.ini.template
+
+
+runner:
+	@python $(CWD)/bin/runner.py -f $(CWD)/config/wf.ini.template
+
+
+dev_mq_client:
+	@stomp -H amq_test_server -P 61613
+
+
+dev_kill_runner:
+	@$(CWD)/dev-support/killer.sh runner
+
+dev_kill:
+	@$(CWD)/dev-support/killer.sh all
+
+
 test: .unit
 
 .unit:
@@ -24,12 +50,11 @@ test: .unit
 	    python $$dirUnit/$$module; \
 	done;
 
-.Phony: install
+
 install:
 	@pip install -r requirements.txt
 
 
-.PHONY: help
 help:
 	@echo 'Usage: <command>'
 	@echo ''
@@ -38,3 +63,6 @@ help:
 	@echo '    server_test'
 	@echo '    mongo_client'
 	@echo '    install'
+	@echo '    dev_mq_client'
+	@echo '    dev_kill'
+	@echo '    dev_kill_runner'

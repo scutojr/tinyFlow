@@ -38,6 +38,12 @@ class ServiceRouter(object):
     def set_event_listener(self, listener):
         self.event_listener = listener
 
+    def get_http_server(self):
+        return self.server
+
+    def set_http_server(self, server):
+        self.server = server
+
 
 service_router = ServiceRouter()
 

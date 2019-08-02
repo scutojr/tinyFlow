@@ -5,7 +5,7 @@ from flask import request, Response
 from flask.blueprints import Blueprint
 
 from wf import service_router
-from wf.workflow import Workflow
+from wf.workflow import Workflow, state_str
 from wf.utils import now_ms
 from wf.reactor import Event
 
@@ -14,11 +14,6 @@ bp = Blueprint('workflow', __name__)
 wf_manager = service_router.get_wf_manager()
 wf_executor = service_router.get_wf_executor()
 reactor = service_router.get_reactor()
-
-_source = 'http-api'
-_wf_actions = {
-    'exec'
-}
 
 
 @bp.route('/workflows', methods=['GET'])
@@ -62,17 +57,6 @@ def run_wf(wf_name=''):
     :http param async:
     :return:
     """
-    """
-    event, extra_params = None, request.args
-    if request.method == 'POST':
-        event = Event.from_json(request.data)
-    is_async = request.args.get('async', False)
-    ids, async_res = reactor.receive_event(event, wf_name, extra_params)
-    if not is_async:
-        for ar in async_res:
-            ar.wait()
-    return json.dumps(ids)
-    """
     is_async = request.args.get('async', False)
 
     event, req = None, request.args
@@ -89,12 +73,10 @@ def run_wf(wf_name=''):
     return json.dumps([ar.wf_id for ar in async_results])
 
 
-@bp.route('/workflows/<wf_id>/execution', methods=['GET'])
-def get_wf_execution_info(wf_id):
-    # TODO: do as what this method implies
-    state = wf_executor.get_wf_state(ObjectId(wf_id))
-    return state
-
+@bp.route('/executions/<wf_id>/execution', methods=['GET'])
+def get_wf_execution(wf_id):
+    execution = wf_manager.get_workflow_execution(ObjectId(wf_id))
+    return execution.to_mongo()
 
 @bp.route('/executions/', methods=['GET'])
 def get_executions():
@@ -119,7 +101,11 @@ def get_executions():
             .order_by('-start')
             .skip(skip)
            )
-    return json.dumps(wfs.as_pymongo())
+    def transform(wf):
+        s = wf.execution.state
+        wf.execution.state = state_str(s)
+        return wf.to_mongo()
+    return json.dumps(transform(wf) for wf in wfs)
 
 
 @bp.route('/executions/<id>', methods=['GET'])
@@ -144,7 +130,7 @@ def get_wf_var():
     wf_id = args.get('wf_id', None)
     if wf_id is None:
         return Response(status=400)
-    vars = wf_manager.get_variables_from_wf(ObjectId(wf_id), filled_value=True)
+    vars = wf_manager.get_variables_from_id(ObjectId(wf_id), filled_value=True)
     return json.dumps(vars)
 
 

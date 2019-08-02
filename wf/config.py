@@ -17,6 +17,11 @@ MQ_EVENT_LISTENER_ENABLE = 'mq_event_listener_enable'
 MQ_TOPIC = 'mq_topic'
 MQ_ADDRESS = 'mq_address'
 
+EXECUTOR_POOL_SIZE = 'executor_pool_size'
+EXECUTOR_MODE = 'executor_mode'
+EXECUTOR_MASTER_TOPIC = 'executor_master_topic'
+EXECUTOR_RUNNER_TOPIC = 'executor_runner_topic'
+
 
 _built_in_vars = [
     ('HOME', HOME)  # root dir of this project
@@ -54,6 +59,17 @@ class Configuration(object):
 
     def set(self, name, value):
         self.props[name] = value
+
+    def get_mq_host_and_ports(self):
+        host_and_ports = self.get(MQ_ADDRESS, 'amq_test_server:61613')
+        host_and_ports = [tuple(hp.strip().split(':', 1)) for hp in host_and_ports.split(',') if hp.strip()]
+        return host_and_ports
+
+    def set_role(self, role_name):
+        self.role = role_name
+
+    def get_role(self):
+        return self.role
 
 
 class Property(me.EmbeddedDocument):

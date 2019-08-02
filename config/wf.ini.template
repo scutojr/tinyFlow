@@ -2,7 +2,11 @@
 #     $HOME: root dir of the server source code
 
 [tinyFlow]
-#pack_dir=$HOME/tests/workflows
+# pack_dir=$HOME/tests/workflows
+# pack_legacy_dir=/var/run/tobot/
+# http_port=54321
+# executor_mode=local
+executor_mode=distributed
 pack_dir=/tmp/ojr/tests/workflows
 
 #mq_event_listener_enable=False
