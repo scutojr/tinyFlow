@@ -11,8 +11,9 @@ class EventState(object):
     INFO = 'info'
     WARN = 'warning'
     CRITICAL = 'critical'
+    UNKNOWN = 'unknown'
 
-    alls = (INFO, WARN, CRITICAL)
+    alls = (INFO, WARN, CRITICAL, UNKNOWN)
 
 
 class Event(me.Document):
