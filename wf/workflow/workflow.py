@@ -24,6 +24,9 @@ class AsyncHandler(me.Document):
 
     meta = {
         'allow_inheritance': True,
+        'indexes': [
+            'timestamp',
+        ]
     }
 
 
@@ -100,26 +103,33 @@ class Dispatcher(object):
     def detach(self, handler):
         handler.delete()
 
-    def _dispatch(self, handlers, payload):
+    def _dispatch(self, handlers, payload, is_timeout):
         results = []
         for h in handlers:
-            r = h.handle_fired(self.wf_mgr, self.wf_executor, payload)
+            if is_timeout:
+                r = h.handle_timeout(self.wf_mgr, self.wf_executor)
+            else:
+                r = h.handle_fired(self.wf_mgr, self.wf_executor, payload)
             # TODO: if crash during the wf execution, this observer will lose forever
             self.detach(h)
             results.append(r)
         return results
 
-    def dispatch_event(self, event):
+    def dispatch_event(self, event, is_timeout=False):
         handlers = AsyncEventHandler.objects(
             name = event.name,
             entity = event.entity,
             state = event.state
         )
-        return self._dispatch(handlers, event)
+        return self._dispatch(handlers, event, is_timeout)
 
-    def dispatch_judgement(self, wf_id, judgement):
+    def dispatch_judgement(self, wf_id, judgement, is_timeout=False):
         handlers = JudgementHandler.objects(wf_id=ObjectId(wf_id))
-        return self._dispatch(handlers, judgement)
+        return self._dispatch(handlers, judgement, is_timeout)
+
+    def handle_timeout(self, before):
+        handlers = AsyncHandler.objects(__raw__={'timestamp': {'$lte': before}})
+        return self._dispatch(handlers, None, True)
 
 
 class Workflow(me.Document):
@@ -201,7 +211,7 @@ class Workflow(me.Document):
         next_task and self.set_next_task(next_task)
         self.tri_chain.add_trigger(event=event, req=req, judgement=judgement)
 
-    def execute(self, trigger=None):
+    def execute(self):
         logger = self.logger
         try:
             self.execution.execute(self.topology, self.tri_chain)
@@ -245,42 +255,4 @@ class Workflow(me.Document):
     def get_logger(wf_id):
         wf = Workflow.objects(id=wf_id).only('logger').first()
         return wf and wf.logger
-
-    '''
-    def make_decision(self, decision, comment):
-        self._ctx.make_decision(decision, comment)
-
-    def get_decision(self):
-        return self._ctx.user_decision.decision
-
-    def get_metadata(self):
-        pass
-
-    def get_id(self):
-        return self._ctx.id
-
-    def set_ctx(self, ctx):
-        pass
-
-    def get_ctx(self):
-        return self._ctx
-
-    def get_trigger(self):
-        return self._ctx.trigger
-
-    def set_state(self, state):
-        self._ctx.state = state
-
-    def get_id(self):
-        return self._ctx.id
-
-    def save(self):
-        self._ctx.save()
-
-    def validate(self):
-        assert self._entrance is not None, 'entrance of the workflow must be defined'
-
-    def __str__(self):
-        return json.dumps(self._graph)
-    '''
 

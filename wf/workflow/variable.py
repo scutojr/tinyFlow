@@ -48,7 +48,7 @@ class Variable(object):
             ns = NS_OVERALL
         return self._router.get_prop_mgr().update_property(name=name, namespace=ns, value=value)
 
-    def to_json():
+    def to_json(self):
         return {
             'name': self.name,
             'desc': self.desc,

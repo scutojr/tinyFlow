@@ -49,7 +49,7 @@ class WorkflowBuilder(WorkflowProxy):
         repeat = set()
         for sub in self.subscriptions:
             key = sub.to_key()
-            assert key in repeat, 'repeated subscription is not allowed'
+            assert key not in repeat, 'repeated subscription is not allowed'
             repeat.add(key)
 
     def _immutable(self):

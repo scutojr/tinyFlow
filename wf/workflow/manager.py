@@ -2,6 +2,7 @@ import os
 import os.path as op
 import shutil
 import logging
+import tarfile
 from threading import RLock
 from collections import defaultdict
 from imp import find_module, load_module
@@ -19,8 +20,9 @@ PACK_LEGACY_DIR = 'pack_legacy_dir'
 
 
 class WorkflowManager(object):
-    def __init__(self, config, reactor, wf_executor):
-        self.logger = logging.getLogger(WorkflowBuilder.__name__)
+    def __init__(self, config, reactor=None, wf_executor=None, is_runner_mode=False):
+        self.logger = logging.getLogger(WorkflowManager.__name__)
+        self.is_runner_mode = is_runner_mode
 
         self.pack_dir = config.get(PACK_DIR, '/etc/tobot/')
         self.legacy_dir = config.get(PACK_LEGACY_DIR, '/var/run/tobot/')
@@ -32,8 +34,10 @@ class WorkflowManager(object):
         self.reactor = reactor
         self.wf_executor = wf_executor
         self.lock = RLock()
+        self._txid = None
 
-        self._register_wf_async_handler()
+        if not self.is_runner_mode:
+            self._register_wf_async_handler()
 
     def _register_wf_async_handler(self):
         """
@@ -80,11 +84,15 @@ class WorkflowManager(object):
         pass
 
     def _register(self, builders):
+        if self.is_runner_mode:
+            return
         self._wf_builders = builders
         for b in builders.values():
             self.reactor.attach_workflow(b)
 
     def _unregister(self, builders):
+        if self.is_runner_mode:
+            return
         for b in builders:
             self.reactor.detach_workflow(b)
 
@@ -117,6 +125,7 @@ class WorkflowManager(object):
                         builder.validate()
                     except AssertionError as e:
                         self.logger.exception('failed to validate ' + module.__file__)
+                        raise e
             else:
                 if builder is not None:
                     for var in vars:
@@ -196,11 +205,14 @@ class WorkflowManager(object):
             wf_builder = self.get_wf_builder(name=name)
         return wf_builder.workflow_info()
 
-    def get_variables(self, wf_name):
-        pass
+    def get_workflow_execution(self, wf_id):
+        """
+        :return : None or Execution instance for workflow of wf_id
+        """
+        wf = Workflow.objects(id=wf_id).only('execution').first()
+        return wf and wf.execution or None
 
-    def get_variables_from_wf(self, wf_id, filled_value=False):
-        wf= self.get_workflow(wf_id=wf_id, fields=['name', 'version', 'execution'])
+    def _get_variables(self, wf, filled_value):
         builder = self.get_wf_builder(wf.name, wf.version)
 
         if filled_value:
@@ -211,36 +223,55 @@ class WorkflowManager(object):
                 res.append(seri)
             return res
         else:
-            return [v.to_json for v in builder.variables]
+            return [v.to_json() for v in builder.variables]
 
-    """
-    def get_workflows(self):
-        wfs = self._workflows.values()
-        return [wf.instance() for wf in wfs]
+    def get_variables_from_id(self, wf_id, filled_value=False):
+        wf= self.get_workflow(wf_id=wf_id, fields=['name', 'version', 'execution'])
+        return self._get_variables(wf, filled_value)
 
-    def get_wf_from_event(self, event):
-        if event is None:
-            return []
-        key = EventSubcription.key_from_event(event)
-        wfs = self._handlers[key]
-        return [wf.instance() for wf in wfs]
+    def get_variables_from_wf(self, wf, filled_value=False):
+        return self._get_variables(wf, filled_value)
 
-    def get_workflow(self, name, ctx_id=None):
-        wf = self._workflows.get(name, None)
-        if wf:
-            wf = wf.instance(ctx_id=ctx_id)
-        return wf
+    def _compress_source(self, version):
+        if version:
+            return op.join(self.legacy_dir, str(version))
+        else:
+            return self.legacy_dir
 
-    def _register(self, sub, wf):
-        self._handlers[sub.to_key()].append(wf)
+    def _compress_target(self, version=None):
+        if version:
+            return '/tmp/tobot-legacy-%s.tar.gz' % version
+        else:
+            return '/tmp/tobot-legacy.tar.gz'
 
-    def _add_var(self, wf_name, var):
-        self._vars[wf_name].append(var)
+    def compress_legacy_dir(self, version=None):
+        """
+        :return: path to the newly created tar file
+        """
+        self.lock.acquire()
+        try:
+            source = self._compress_source(version)
+            target = self._compress_target(version)
 
-    def get_variables(self, wf_name):
-        return self._vars[wf_name]
+            if version and op.exists(target):
+                return target
+            if self._txid and self._txid >= self.latest_version:
+                return target
+            else:
+                self._txid = self.latest_version
 
-    def get_subscriptions(self, wf_name):
-        return self._sub[wf_name]
-    """
+            tar = tarfile.open(target, 'w:gz')
+            tar.add(source)
+            tar.close()
+            if not vesrion:
+                self._txid = self.latest_version
+
+            return target
+        finally:
+            self.lock.release()
+
+    @staticmethod
+    def decompress_legacy_dir(self, fileobj, path='/'):
+        tar = tarfile.open(fileobj=fileobj)
+        tar.extractall(path)
 

@@ -1,11 +1,11 @@
 from .manager import WorkflowManager
-from .workflow import Workflow
+from .workflow import Workflow, AsyncHandler
 from .subscription import Subscription
 from .builder import WorkflowBuilder
 from .variable import Variable, Scope
 from .judgement import Judgement
 from .proxy import wf_proxy
-from .execution import ParamSource, Parameter
+from .execution import ParamSource, Parameter, state_str
 
 
 __all__ = [
@@ -18,5 +18,7 @@ __all__ = [
     'Judgement',
     'wf_proxy',
     'Parameter',
-    'ParamSource'
+    'ParamSource',
+    'state_str',
+    'AsyncHandler'
 ]
