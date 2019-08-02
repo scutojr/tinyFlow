@@ -14,9 +14,11 @@ from wf.workflow.workflow import (
     JudgementHandler,
 )
 from wf.workflow.builder import WorkflowBuilder
-from wf.workflow.execution import STATE_SUCCEED
-from wf.workflow import wf_proxy
+from wf.workflow.execution import STATE_SUCCEED, STATE_SCHEDULING, STATE_WAITING
+from wf.workflow import wf_proxy, Judgement
+
 import tests.utils.db as db
+import tests.utils.server as server
 
 
 class TestDispatcher(unittest.TestCase):
@@ -99,6 +101,8 @@ class TestDispatcher(unittest.TestCase):
 
 
 class TestWorkflowAsyncExecution(unittest.TestCase):
+    WAIT_EVENT = 1 << 1
+    WAIT_JUDGEMENT = 1 << 2
 
     def setUp(self):
         db.connect()
@@ -106,6 +110,14 @@ class TestWorkflowAsyncExecution(unittest.TestCase):
         self.handler = None
         self.wf = None
         self.trace = None
+        self.event = Event(name='test_event', entity='dev', state='warning')
+        self.judgement = Judgement.construct(
+            'this is a test to judgement',
+            ['option1', 'option2', 'option3']
+        )
+        self.mode = self.WAIT_EVENT
+
+        self.event.save()
 
         class Trace(object):
             def __init__(self):
@@ -117,17 +129,11 @@ class TestWorkflowAsyncExecution(unittest.TestCase):
 
         trace = Trace()
         self.trace = trace
-        event = Event(name='test_event', entity='dev', state='warning')
 
         @builder.task('start', entrance=True)
         def task_start():
             trace.is_start = True
-            builder.wait(
-                event, 'info',
-                on_fired='end',
-                on_timeout='timeout',
-                timeout_ms = 5 * 1000
-            )
+            self._task()
 
         @builder.task('end')
         def task_end():
@@ -139,13 +145,28 @@ class TestWorkflowAsyncExecution(unittest.TestCase):
             trace.is_timeout = True
             builder.end()
 
+        setter = lambda h: setattr(self, 'handler', h)
         reactor = Mock(**{
-            'attach_async_workflow.side_effect': (lambda h: setattr(self, 'handler', h))
+            'attach_async_workflow.side_effect': setter,
+            'attach_judgement.side_effect': setter
         })
         builder.setup(123, reactor)
 
+        self.builder = builder
         self.wf = builder.build()
         wf_proxy.set_workflow(self.wf)
+
+    def _task(self):
+        if self.mode & self.WAIT_EVENT == self.WAIT_EVENT:
+            self.builder.wait(
+                self.builder.trigger.event, 'info',
+                on_fired='end',
+                on_timeout='timeout',
+                timeout_ms = 5 * 1000
+            )
+        else:
+            j = self.judgement
+            self.builder.ask(j.desc, j.options, 'end')
 
     def tearDown(self):
         pass
@@ -154,6 +175,7 @@ class TestWorkflowAsyncExecution(unittest.TestCase):
         # TODO: test trigger
         wf, t = self.wf, self.trace
 
+        wf.before_execute(event=self.event)
         wf.execute()
 
         self.assertTrue(wf.state_str == 'waiting')
@@ -166,6 +188,7 @@ class TestWorkflowAsyncExecution(unittest.TestCase):
     def test_wait_event_timeout(self):
         wf, t = self.wf, self.trace
 
+        wf.before_execute(event=self.event)
         wf.execute()
 
         self.assertTrue(wf.state_str == 'waiting')
@@ -176,7 +199,34 @@ class TestWorkflowAsyncExecution(unittest.TestCase):
         self.assertTrue(t.is_start and not t.is_end and t.is_timeout)
 
     def test_user_judgement(self):
-        pass
+        self.mode = self.WAIT_JUDGEMENT
+
+        self.assertTrue(self.wf.state_str == 'scheduling')
+
+        self.wf.execute()
+        self.assertTrue(self.wf.state_str == 'waiting')
+
+        wf_mgr = Mock(**{'get_workflow.return_value': self.wf})
+        executor = Mock(**{'execute_async.side_effect': lambda wf: wf.execute()})
+        self.handler.handle_fired(wf_mgr, executor, self.judgement)
+
+        self.assertTrue(self.wf.state_str == 'succeed')
+        self.assertTrue(self.trace.is_end)
+
+    def test_timeout(self):
+        self.assertTrue(self.wf.state_str == 'scheduling')
+
+        self.wf.before_execute(event=self.event)
+        self.wf.execute()
+
+        self.assertTrue(self.wf.state_str == 'waiting')
+
+        wf_mgr = Mock(**{'get_workflow.return_value': self.wf})
+        executor = Mock(**{'execute_async.side_effect': lambda wf: wf.execute()})
+        self.handler.handle_timeout(wf_mgr, executor)
+
+        self.assertTrue(self.wf.state_str == 'succeed')
+        self.assertTrue(self.trace.is_timeout)
 
 
 class TestWorkflow(unittest.TestCase):
@@ -364,6 +414,14 @@ class WorkflowFactory():
         wf.add_task('task c', c)
         wf.add_task('task end', end)
         return wf.build()
+
+    @staticmethod
+    def wf_with_judgement():
+        pass
+
+    @staticmethod
+    def wf_with_waiting_event():
+        pass
 
 
 if __name__ == '__main__':

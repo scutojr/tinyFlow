@@ -1,7 +1,10 @@
 import os
+import md5
 import os.path as op
+import tarfile
 import unittest
 import shutil
+import commands
 
 from mock import Mock, patch
 
@@ -16,6 +19,7 @@ from wf.reactor import Reactor
 
 from tests.utils.config import conf
 import tests.utils.db as db
+import tests.utils.fs as fs
 import tests.utils.wf_mgr as util_wf_mgr
 
 
@@ -74,8 +78,38 @@ class TestWorkflowManager(unittest.TestCase):
         self.assertTrue(wf2 != None)
         self.assertTrue(wf1 != wf2)
 
-    def test_register(self):
-        pass
+    def _dirname(self, tarf):
+        tar = tarfile.open(tarf, 'r:gz')
+        for tinfo in tar:
+            if tinfo.isdir():
+                return tinfo.name
+            elif tinfo.isfile():
+                return op.dirname(tinfo.name)
+            else:
+                raise Exception('not supported file type')
+
+    def test_legacy_compress_decompress(self):
+        def checksum(file):
+            rs, msg = commands.getstatusoutput("md5sum %s | awk '{print $1}'" % file)
+            return msg
+
+        max_version = 5
+        executor = Mock()
+        mgr = util_wf_mgr.create_wf_mgr(max_version, Reactor(executor))
+
+        tmp_dir = '/tmp/test_wf_mgr'
+        try:
+            os.mkdir(tmp_dir)
+            tarfile = mgr.compress_legacy_dir()
+            mgr.decompress_legacy_dir(open(tarfile, 'rb'), tmp_dir)
+            self.assertTrue(fs.equal(
+                mgr._compress_source(None),
+                op.join(tmp_dir, self._dirname(tarfile))
+            ))
+        finally:
+            assert tmp_dir != '/'
+            shutil.rmtree(tmp_dir)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -6,12 +6,13 @@ from stomp import Connection
 from stomp.exception import ConnectFailedException
 
 from wf.mq import EventListener
+import tests.utils.mq as mq
 
 
 class TestMq(unittest.TestCase):
     def setUp(self):
         self.topic = 'testEventListening'
-        self.host_and_ports = [('amq_test_server', 61613)]
+        self.host_and_ports = mq.host_and_ports
 
         self.listener = EventListener(
             self.host_and_ports, self.topic

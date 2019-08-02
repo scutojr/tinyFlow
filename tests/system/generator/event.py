@@ -4,7 +4,7 @@ import random
 import itertools
 
 import tests.utils.db as db
-from wf.server.reactor.event import Event
+from wf.reactor import Event
 
 
 event_name = [
@@ -41,11 +41,11 @@ dc_2 = {
     "cluster": "recommendation"
 }
 
-state = [
-    "INFO",
-    "WARNING",
-    "CRITICAL",
-    "INFO"
+states = [
+    "info",
+    "warning",
+    "critical",
+    "info"
 ]
 
 params = {
@@ -109,7 +109,6 @@ class EventFactory(object):
 
     def run(self):
         evolves = set()
-        states = ('INFO', 'WARNING', 'CRITICAL', 'INFO')
         while self.running:
             if len(evolves) <= 0:
                 evolves = {

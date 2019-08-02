@@ -4,6 +4,7 @@ import unittest
 
 from tests import http
 from wf.reactor import Event, EventState
+from wf.workflow.execution import state_str
 
 
 HOST, PORT = 'localhost', 54321
@@ -20,9 +21,10 @@ class TestAPI(unittest.TestCase):
     def _get_wf_state(self, wf_id):
         if isinstance(wf_id, dict):
             wf_id = wf_id['$oid']
-        endpoint = '/tobot/workflows/' + wf_id + '/execution'
+        endpoint = '/tobot/executions/' + wf_id + '/execution'
         status, reason, msg = http.get(HOST, PORT, endpoint)
-        return msg.strip()
+        execution = json.loads(msg)
+        return state_str(execution['state'])
 
     def _get_event(self, name, entity='ojr-test', state='critical', tags={}):
         default = {'cluster': 'jy', 'role': 'DataNode', 'ip': '10.11.12.13'}
@@ -105,6 +107,12 @@ class TestAPI(unittest.TestCase):
         wf_ids = tmp
         for wf_id in wf_ids:
             self.assertTrue(self._get_wf_state(wf_id) == 'succeed')
+
+    def test_basic_execution(self):
+        """
+        basic execution is case that workflow finished immediately without
+        waiting any event and user decision
+        """
 
     def test_user_decision(self):
         wf_name = 'user_decision'
