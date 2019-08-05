@@ -22,7 +22,7 @@ class WfResult(AsyncResult):
         self.wf_id = wf_id
 
 
-class WfInfo(object):
+class WorkflowReport(object):
     def __init__(self, wf_id, state, hostname, pid):
         self.wf_id = wf_id
         self.state = state
@@ -35,6 +35,7 @@ class RunnerManager(object):
         def __init__(self, hostname):
             self.hostname = hostname
             self.last = now_ms()
+            self.pid = 0
 
     def __init__(self):
         self.runners = {}
@@ -59,6 +60,9 @@ class MasterExecutor(SimpleExecutor):
         self._workflows = {}
         self._non_end_states = (STATE_SCHEDULING, STATE_RUNNING)
 
+    def get_runner(self):
+        return self.runner_api
+
     def execute(self, workflow, timeout=None):
         result = self.execute_async(workflow)
         return result.get(timeout)
@@ -72,11 +76,9 @@ class MasterExecutor(SimpleExecutor):
         return result
 
     @route()
-    def update_workflow(self, wf_id, state, hostname, pid):
-        from wf.workflow.execution import state_str
-
+    def report_workflow(self, wf_id, state, hostname, pid):
         if wf_id not in self._workflows:
-            wf_info = WfInfo(wf_id, state, hostname, pid)
+            wf_info = WorkflowReport(wf_id, state, hostname, pid)
             self._workflows[wf_id] = wf_info
         else:
             wf_info = self._workflows[wf_id]
