@@ -1,5 +1,7 @@
 import sys
-import atexit
+import logging
+import os
+import os.path as op
 from optparse import OptionParser
 
 from mongoengine import connect
@@ -11,6 +13,10 @@ from wf.workflow import WorkflowManager
 from wf.executor import MultiThreadExecutor
 from wf.config import (
     PropertyManager,
+    DB_HOST,
+    DB_PORT,
+    DB_NAME,
+    LOG_DIR,
     EXECUTOR_MODE,
     EXECUTOR_MASTER_TOPIC,
     EXECUTOR_RUNNER_TOPIC
@@ -36,25 +42,46 @@ def parse_opts(args):
     return options
 
 
-def _connect_db():
+def _connect_db(conf):
     def ensure_index():
         from wf.reactor.event import Event
         Event.ensure_indexes()
-    db = 'test'
-    host, port = 'mongo_test_server', 27017
+    db, host, port = (
+        conf.get(DB_NAME, 'test'),
+        conf.get(DB_HOST, 'mongo_test_server'),
+        conf.get(DB_PORT, 27017),
+    )
     connect(db, host=host, port=port)
     ensure_index()
 
 
-def _config_log():
-    pass
+def _config_log(conf, log_name):
+    log_dir = conf.get(LOG_DIR, '/var/log/tobot')
+    if not op.exists(log_dir):
+        os.mkdir(log_dir)
+
+    log_file, max_byte, backup_count = (
+        op.join(log_dir, log_name),
+        100 * 1024 * 1024 * 1024,
+        10
+    )
+    log_format = '%(asctime)s - %(process)d - %(levelname)s - %(name)s - %(message)s'
+    log_roller = logging.handlers.RotatingFileHandler(
+        log_file,
+        maxBytes=max_byte,
+        backupCount=backup_count,
+    )
+    log_roller.setFormatter(logging.Formatter(log_format))
+    root = logging.getLogger()
+    root.addHandler(log_roller)
+    root.setLevel(logging.INFO)
 
 
-def set_up(argv, db = True, log = True):
+def set_up(argv, log_name):
     options = parse_opts(argv)
     conf = config.load(options.file)
-    _config_log()
-    _connect_db()
+    _config_log(conf, log_name)
+    _connect_db(conf)
     return conf
 
 
@@ -82,7 +109,7 @@ def _create_executor(conf):
     if mode == 'local':
         return MultiThreadExecutor()
     elif mode == 'distributed':
-        if conf.get_role() == 'runner':
+        if conf.role == 'runner':
             return MultiThreadExecutor()
         else:
             from wf.executor.distributed import Runner, MasterExecutor
