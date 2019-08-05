@@ -5,9 +5,17 @@
 # pack_dir=$HOME/tests/workflows
 # pack_legacy_dir=/var/run/tobot/
 # http_port=54321
+# # local or distributed
 # executor_mode=local
 executor_mode=distributed
 pack_dir=/tmp/ojr/tests/workflows
+executor_master_address=tobot_master:54321
+executor_pool_size=32
+executor_mode=distributed
+executor_master_topic=topic_master
+executor_runner_topic=queue_runner
+executor_master_host=tobot_master
+executor_master_port=54321
 
 #mq_event_listener_enable=False
 #mq_topic=''

@@ -23,6 +23,16 @@ mongo_client:
 
 
 server_test:
+	@target=/var/run/tobot; \
+	if [ ! -d "$$target" ]; \
+	then \
+	    mkdir $$target; \
+	    for i in `seq 5`; \
+		do \
+		    mkdir -p $$target/$$i; \
+	        cp $(CWD)/tests/workflows/* $$target/$$i; \
+		done; \
+	fi
 	@python $(CWD)/bin/tobot.py -f $(CWD)/config/wf.ini.template
 
 
@@ -51,7 +61,9 @@ test: .unit
 	done;
 
 
-install:
+install: .dependency
+
+.dependency:
 	@pip install -r requirements.txt
 
 

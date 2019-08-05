@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 PROJECT_ROOT='/tmp/ojr'
-CWD=`cd $(dirname $0)/..;pwd`
 IMAGE_TAG='workflow:test'
 NETWORK_NAME='wf_test'
 
@@ -11,6 +10,7 @@ MONGO_IMAGE='mongo:3.2'
 AMQ_SERVER='amq_test_server'
 AMQ_IMAGE='webcenter/activemq:latest'
 
+DNS_SERVER="223.5.5.5"
 PORT=54321
 
 # create customized network
@@ -50,9 +50,3 @@ FROM ${IMAGE_TAG}
 ENV PYTHONPATH=${PYTHONPATH}:${PROJECT_ROOT} LC_ALL=C
 image
 
-docker run --rm=true -it \
-    --network=$NETWORK_NAME \
-    -w $PROJECT_ROOT \
-    -v $CWD:$PROJECT_ROOT \
-    -p $PORT:$PORT \
-    $image_tmp
