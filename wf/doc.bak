@@ -1,0 +1,152 @@
+# Reason to trigger an workflow
+
+- request
+- event
+- judgement
+- system.timeout
+
+
+# Procedure to trigger an workflow
+
+
+## Event
+
+### Waiting for an event to remediate
+
+- create an callback to reactor: write an callback to execution an create a hook to reactor
+- wait for event to occur
+- restore the workflow on event toggling
+
+
+## Judgement
+
+same as above
+
+
+## Timeout
+
+same as above
+
+
+---
+
+
+# Concurrency Mode
+
+1. async with callback
+2. blocking thread
+3. coroutine
+4. distributed executor
+
+
+
+Request related to workflow
+
+1. Run workflow
+2. Resume / restart workflow
+3. Read information
+a. Get topology
+b. Get execution state
+c. Get variables info
+d. Get tirgger info
+e. Get log info
+4. Make change
+a. Trigger an workflow
+
+
+
+tr = triggers
+
+t = topology
+
+e = execution
+
+v = variabls
+
+b = wfBuilder
+
+---
+
+e & t: one to one
+
+e & tr: one to many
+
+e & v: one to many
+
+b & v: one to many
+
+b & topology: one to one
+
+---
+
+store:
+
+- mongodb: tr, execution, var
+- disk: topology
+
+
+---
+
+procedure:
+
+- builder create the topology, variables, subscriptions
+
+- wf_mgr
+- - version control of the workflow: version format like <wf name>:<ordinal>
+- - read metadata: topology, variables, subscriptions
+- - create/restore workflow instance
+
+- reactor
+- - maintain mapping from trigger to workflow
+- - handling timeout case
+
+executor
+- - maintain concurrent resource: thread, coroutine, process
+- - different implementation: multi-thread, coroutine, multi-process
+
+
+WF Fields:
+
+- topology: name, diagram
+- subscriptions
+- variables
+- logs
+- executions
+
+
+
+request of any kind: http, internal call
+
+- http. get topology for wf name, description and diagram
+
+
+
+
+### Why should I refact?
+
+1. not readable.
+2. avoid deepcopy as it gets complex with more requirement adding to workflow
+3. make workflow execution more lightweight and simpler
+
+
+
+## Content of refaction
+
+- [DONE] add trigger chain
+- [DONE] decouple the workflow into Topology and Execution
+- execution API for user workflow
+- [DONE]workflow building is accounted by builder
+- [DONE] multi-version maintainence on wf_mgr
+- [DONE]wf_mgr is responsible for creating new and old wf instance
+- event fired at the moment
+- system test: benchmark
+- web
+
+
+workflow
+
+- [DONE] topology
+- proxy
+- log
+- in-memory execution without async
+- async

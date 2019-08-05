@@ -9,6 +9,8 @@ from imp import find_module, load_module
 
 from bson import ObjectId
 
+from wf.exception import WorkflowNotFoundError
+import wf.signal as signal
 from .variable import Variable
 from .builder import WorkflowBuilder
 from .workflow import Workflow, Dispatcher
@@ -20,12 +22,12 @@ PACK_LEGACY_DIR = 'pack_legacy_dir'
 
 
 class WorkflowManager(object):
-    def __init__(self, config, reactor=None, wf_executor=None, is_runner_mode=False):
+    def __init__(self, conf, reactor=None, wf_executor=None, is_runner_mode=False):
         self.logger = logging.getLogger(WorkflowManager.__name__)
         self.is_runner_mode = is_runner_mode
 
-        self.pack_dir = config.get(PACK_DIR, '/etc/tobot/')
-        self.legacy_dir = config.get(PACK_LEGACY_DIR, '/var/run/tobot/')
+        self.pack_dir = self.get_pack_dir(conf)
+        self.legacy_dir = self.get_legacy_dir(conf)
 
         self._legacy_wf_builders = defaultdict(dict)
         self._wf_builders = {}
@@ -62,8 +64,10 @@ class WorkflowManager(object):
         return self._legacy_wf_builders
 
     def _scan_legacy(self):
-        files = os.listdir(self.legacy_dir)
         packs = []
+        if not os.path.exists(self.legacy_dir):
+            return packs
+        files = os.listdir(self.legacy_dir)
         for f in files:
             version = self._get_version(f)
             path = op.join(self.legacy_dir, f)
@@ -79,9 +83,6 @@ class WorkflowManager(object):
             return None
         else:
             return version
-
-    def reload(self):
-        pass
 
     def _register(self, builders):
         if self.is_runner_mode:
@@ -143,21 +144,27 @@ class WorkflowManager(object):
                 self._register(builders)
 
 
-    def load_new(self):
+    def load_new(self, version=None):
         # TODO: before successfully loading, you need to unregister the latest wf from
         #       reactor
         self.lock.acquire()
-
         try:
-            new_version = self.latest_version + 1
-            new_pack_dir = op.join(self.legacy_dir, str(new_version))
+            if version:
+                version = int(version)
+                new_pack_dir = op.join(self.legacy_dir, str(version))
+            else:
+                version = self.latest_version + 1
+                new_pack_dir = op.join(self.legacy_dir, str(version))
+                shutil.copytree(self.pack_dir, new_pack_dir)
 
-            shutil.copytree(self.pack_dir, new_pack_dir)
-            builders = self._load_pack(new_pack_dir, new_version)
-            self.latest_version = new_version
+            builders = self._load_pack(new_pack_dir, version)
 
-            self._unregister(self._wf_builders.itervalues())
-            self._register(builders)
+            if version > self.latest_version:
+                self.latest_version = version
+                self._unregister(self._wf_builders.itervalues())
+                self._register(builders)
+
+            signal.on_load_pack(version)
         finally:
             self.lock.release()
 
@@ -192,10 +199,11 @@ class WorkflowManager(object):
                 raise Exception('wf with id %s is not found' % (wf_id))
             name, version = wf.name, wf.version
 
+        version = version or self.latest_version
         try:
-            builder = self._legacy_wf_builders[version or self.latest_version][name]
+            builder = self._legacy_wf_builders[version][name]
         except KeyError:
-            raise Exception('no workflow is found for %s-%s' % (name, version))
+            raise WorkflowNotFoundError(name, version)
         return builder.build(wf)
 
     def get_workflow_info(self, name=None, wf_id=None):
@@ -263,7 +271,7 @@ class WorkflowManager(object):
             tar = tarfile.open(target, 'w:gz')
             tar.add(source)
             tar.close()
-            if not vesrion:
+            if not version:
                 self._txid = self.latest_version
 
             return target
@@ -271,7 +279,18 @@ class WorkflowManager(object):
             self.lock.release()
 
     @staticmethod
-    def decompress_legacy_dir(self, fileobj, path='/'):
+    def decompress_legacy_dir(fileobj, path='/'):
         tar = tarfile.open(fileobj=fileobj)
         tar.extractall(path)
 
+    @staticmethod
+    def get_legacy_dir(conf, version=None):
+        legacy_dir = conf.get(PACK_LEGACY_DIR, '/var/run/tobot/')
+        if version:
+            return op.join(legacy_dir, str(version))
+        else:
+            return legacy_dir
+
+    @staticmethod
+    def get_pack_dir(conf):
+        return conf.get(PACK_DIR, '/etc/tobot/')

@@ -1,8 +1,17 @@
+from socket import gethostbyname, getfqdn
+
 from time import time
+from httplib import HTTPConnection
 
 
 def now_ms():
     return int(time() * 1000)
+
+def host(hostname=None):
+    if hostname:
+        return gethostbyname(hostname)
+    else:
+        return gethostbyname(getfqdn())
 
 
 class CacheRef(object):
@@ -30,3 +39,4 @@ class CacheRef(object):
             value = func(*args, **kwargs)
             self.set(value)
         return self.get()
+

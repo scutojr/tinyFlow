@@ -1,3 +1,4 @@
+from socket import gethostbyname, getfqdn
 import os.path as op
 import mongoengine as me
 import logging
@@ -9,10 +10,17 @@ __all__ = [
     'Configuration', 'Property', 'PropertyManager'
 ]
 
+HTTP_PORT = 'http_port'
 
 HOME = op.abspath(op.join(op.dirname(__name__), '..'))
 PACK_DIR = 'pack_dir'
 PACK_LEGACY_DIR = 'pack_legacy_dir'
+
+LOG_DIR = 'log_dir'
+DB_HOST = 'db_host'
+DB_PORT = 'db_port'
+DB_NAME = 'test'
+
 MQ_EVENT_LISTENER_ENABLE = 'mq_event_listener_enable'
 MQ_TOPIC = 'mq_topic'
 MQ_ADDRESS = 'mq_address'
@@ -21,6 +29,8 @@ EXECUTOR_POOL_SIZE = 'executor_pool_size'
 EXECUTOR_MODE = 'executor_mode'
 EXECUTOR_MASTER_TOPIC = 'executor_master_topic'
 EXECUTOR_RUNNER_TOPIC = 'executor_runner_topic'
+EXECUTOR_MASTER_HOST = 'executor_master_host'
+EXECUTOR_MASTER_PORT = 'executor_master_port'
 
 
 _built_in_vars = [
@@ -53,6 +63,8 @@ def load(file_path):
 class Configuration(object):
     def __init__(self):
         self.props = {}
+        self._master_host = None
+        self._runner_host = None
 
     def get(self, name, default=None):
         return self.props.get(name, default)
@@ -65,11 +77,33 @@ class Configuration(object):
         host_and_ports = [tuple(hp.strip().split(':', 1)) for hp in host_and_ports.split(',') if hp.strip()]
         return host_and_ports
 
-    def set_role(self, role_name):
-        self.role = role_name
+    @property
+    def role(self):
+        """
+        roles: runner, tobot
+        """
+        return self._role
 
-    def get_role(self):
-        return self.role
+    @role.setter
+    def role(self, role_name):
+        self._role = role_name
+
+    @property
+    def mode(self):
+        pass
+
+    @property
+    def master_host(self):
+        if not self._master_host:
+            if self.role == 'tobot':
+                self._master_host = gethostbyname(getfqdn())
+            else:
+                self._master_host = self.get(EXECUTOR_MASTER_HOST, 'localhost')
+        return self._master_host
+
+    @property
+    def http_port(self):
+        return self.get(HTTP_PORT, 54321)
 
 
 class Property(me.EmbeddedDocument):

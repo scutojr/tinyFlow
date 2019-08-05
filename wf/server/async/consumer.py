@@ -54,6 +54,8 @@ class Consumer(ConnectionListener):
 
     def on_message(self, headers, message):
         # TODO: should we validate the message format and field type here?
+        # TODO: if exception occurs and not ack, will the same message trigger
+        #       this method again?
         try:
             msg = json.loads(message)
             self.handler.handle(msg)

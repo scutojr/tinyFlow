@@ -17,6 +17,8 @@ def load_workflow():
 
 
 @bp.route('/admin/wf_mgr/legacy', methods=['GET'])
-def get_legacy_as_tar():
-    path = wf_manager.compress_legacy_dir()
+@bp.route('/admin/wf_mgr/legacy/', methods=['GET'])
+@bp.route('/admin/wf_mgr/legacy/<version>', methods=['GET'])
+def get_legacy_as_tar(version=None):
+    path = wf_manager.compress_legacy_dir(version)
     return send_file(path)
