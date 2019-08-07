@@ -44,6 +44,12 @@ class ServiceRouter(object):
     def set_http_server(self, server):
         self.server = server
 
+    def get_stat_driver(self):
+        return self.stat_driver
+
+    def set_stat_driver(self, stat_driver):
+        self.stat_driver = stat_driver
+
 
 service_router = ServiceRouter()
 

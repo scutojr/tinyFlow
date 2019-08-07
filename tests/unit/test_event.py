@@ -1,6 +1,12 @@
+import time
+from random import randint
 import unittest
 from mock import Mock, patch
 from wf.reactor import Event, EventState
+from wf.stat import TTR
+
+from wf.utils import now_ms
+from wf.stat import StatDriver
 
 import tests.utils.db as db
 
@@ -76,6 +82,71 @@ class TestEvent(unittest.TestCase):
         query_by_name = Event.query(name=self.names[0])
         query_by_entity= Event.query(entity=self.entities[0])
         self.assertTrue(query_by_name.count() == query_by_entity.count())
+
+
+class TestStatDriver(unittest.TestCase):
+    def setUp(self):
+        db.connect()
+
+    def tearDown(self):
+        db.drop(TTR)
+
+    def gen_event(self, state, timestamp):
+        return Event(
+            name='test_ttr',
+            entity='localhost',
+            tags={'cluster': 'test'},
+            start=timestamp,
+            state=state
+        )
+
+    def test_ttr(self):
+        driver = StatDriver()
+        driver.start()
+        try:
+            start = now_ms() - 100 * 1000
+            data = [
+                [
+                    'info', start,
+                    lambda ttr: (
+                        self.assertTrue(ttr != None) and
+                        self.assertTrue(ttr.state == 'info')
+                    )
+                ],
+                [
+                    'info', start,
+                    lambda ttr: (
+                        self.assertTrue(len(ttr.ttrs) == 0) and
+                        self.assertTrue(ttr.state == 'info')
+                    )
+                ],
+                [
+                    'warning', start + 10 * 1000,
+                    lambda ttr: (
+                        self.assertTrue(len(ttr.ttrs) == 0) and
+                        self.assertTrue(ttr.state == 'warning')
+                    )
+                ],
+                [
+                    'info', start + 30 * 1000,
+                    lambda ttr: (
+                        self.assertTrue(len(ttr.ttrs) == 1) and
+                        self.assertTrue(ttr.state == 'info') and
+                        self.assertTrue(ttr.ttrs[0] == 20 * 1000)
+                    )
+                ]
+            ]
+            for level, timestamp, validator in data:
+                e = self.gen_event(level, timestamp)
+                driver.add_event(e)
+                time.sleep(1)
+                validator(TTR.from_event(e))
+
+            driver._compute_mttr(False)
+            ttr = TTR.from_event(self.gen_event('info', now_ms()))
+            self.assertTrue(ttr.mttr == 20 * 1000)
+        finally:
+            driver.stop()
 
 
 if __name__ == '__main__':

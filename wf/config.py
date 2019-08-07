@@ -90,7 +90,7 @@ class Configuration(object):
 
     @property
     def mode(self):
-        pass
+        return self.get(EXECUTOR_MODE, 'local').strip()
 
     @property
     def master_host(self):

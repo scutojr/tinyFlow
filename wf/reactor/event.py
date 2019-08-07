@@ -16,6 +16,15 @@ class EventState(object):
     alls = (INFO, WARN, CRITICAL, UNKNOWN)
 
 
+class EventTimeline(me.Document):
+    name = me.StringField(required=True)
+    entity = me.StringField(required=True)
+    tags = me.DictField()
+    state = me.StringField(default=EventState.INFO)
+
+    events = me.ListField()
+
+
 class Event(me.Document):
     name = me.StringField(required=True)
     entity = me.StringField(required=True)

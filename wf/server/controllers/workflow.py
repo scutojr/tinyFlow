@@ -14,6 +14,7 @@ bp = Blueprint('workflow', __name__)
 wf_manager = service_router.get_wf_manager()
 wf_executor = service_router.get_wf_executor()
 reactor = service_router.get_reactor()
+stat_driver = service_router.get_stat_driver()
 
 
 @bp.route('/workflows', methods=['GET'])
@@ -63,6 +64,7 @@ def run_wf(wf_name=''):
     if request.method == 'POST':
         event = Event.from_json(request.data)
         event.save()
+        stat_driver.add_event(event)
         async_results = reactor.dispatch_event(event=event, wf_name=wf_name, req=req)
     else:
         async_results = reactor.dispatch_req(wf_name, req, event=event)

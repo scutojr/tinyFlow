@@ -6,6 +6,7 @@ from optparse import OptionParser
 
 from mongoengine import connect
 
+from wf.stat import StatDriver
 from wf import config
 from wf import service_router
 from wf.server import HttpServer
@@ -85,7 +86,7 @@ def set_up(argv, log_name):
     return conf
 
 
-def _create_and_start_mq_listener(conf, reactor):
+def _create_and_start_mq_listener(conf, reactor, stat_driver):
     enable = conf.get(config.MQ_EVENT_LISTENER_ENABLE, 'false').lower()
     listener = None
     if enable == 'true':
@@ -99,17 +100,17 @@ def _create_and_start_mq_listener(conf, reactor):
             host, port = hp.split(':')
             hap.append((host, int(port)))
         listener = EventListener(hap, topic)
-        listener.start_listening()
+        listener.start_listening(reactor)
     return listener
 
 
 def _create_executor(conf):
     # mode in 'local' and 'distributed'
-    mode = conf.get(EXECUTOR_MODE, 'local').strip()
+    mode, role = conf.mode, conf.role
     if mode == 'local':
         return MultiThreadExecutor()
     elif mode == 'distributed':
-        if conf.role == 'runner':
+        if role == 'runner':
             return MultiThreadExecutor()
         else:
             from wf.executor.distributed import Runner, MasterExecutor
@@ -145,12 +146,20 @@ def get_topic_and_queue(conf):
 
 def start_services(conf):
     pack_dir = config.configuration.get(PACK_DIR)
+    mode, role = conf.mode, conf.role
 
     wf_executor = _create_executor(conf)
     reactor = Reactor(wf_executor)
     wf_manager = WorkflowManager(conf, reactor, wf_executor)
     prop_mgr = PropertyManager()
-    listener = _create_and_start_mq_listener(conf, reactor)
+
+    if mode == 'local' or role == 'tobot':
+        stat_driver = StatDriver()
+        stat_driver.start()
+        service_router.set_stat_driver(stat_driver)
+
+        listener = _create_and_start_mq_listener(conf, reactor, stat_driver)
+        service_router.set_event_listener(listener)
 
     wf_manager.load_legacy()
 
@@ -161,7 +170,6 @@ def start_services(conf):
     service_router.set_wf_executor(wf_executor)
     service_router.set_reactor(reactor)
     service_router.set_prop_mgr(prop_mgr)
-    service_router.set_event_listener(listener)
 
 
 def stop_services():

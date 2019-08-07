@@ -42,12 +42,13 @@ class EventListener(ConnectionListener):
     def _disconnect(self):
         self.conn.disconnect()
 
-    def start_listening(self, reactor, ack='auto'):
+    def start_listening(self, reactor, stat_driver, ack='auto'):
         """
         :param ack: either auto, client or client-individual
         """
         self.should_reconnect = True
         self.reactor = reactor
+        self.stat_driver = stat_driver
         self._connect_and_subscribe(ack)
 
     def stop_listening(self):
@@ -77,6 +78,7 @@ class EventListener(ConnectionListener):
         # TODO: should we validate the message format and field type here?
         try:
             event = Event.from_json(message)
+            self.stat_driver.add_event(event)
             self.reactor.dispatch_event(event)
         except:
             self.logger.exception('failed to process message: ' + message)

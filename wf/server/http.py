@@ -19,7 +19,7 @@ class HttpServer(object):
         self.server = None
 
     def start(self):
-        from .controllers import admin, workflow, prop_mgr, web
+        from .controllers import admin, workflow, prop_mgr, web, stat
         app, port = self.app, self.port
 
         prefix = '/tobot'
@@ -27,6 +27,7 @@ class HttpServer(object):
         app.register_blueprint(workflow, url_prefix=prefix)
         app.register_blueprint(prop_mgr, url_prefix=prefix)
         app.register_blueprint(web, url_prefix=prefix)
+        app.register_blueprint(stat, url_prefix=prefix)
 
         for rule in app.url_map.iter_rules():
             print(rule)
